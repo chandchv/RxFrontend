@@ -6,14 +6,13 @@ import { API_URL } from '../../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../contexts/AuthContext';
 
-
 const CreateAppointmentPatient = ({ navigation }) => {
     const [doctors, setDoctors] = useState([]);
     const [selectedDoctor, setSelectedDoctor] = useState('');
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [availableSlots, setAvailableSlots] = useState([]);
-    const [symptoms, setSymptoms] = useState('');
+    const [reason, setReason] = useState('');
     const [diagnosis, setDiagnosis] = useState('');
     const [medications, setMedications] = useState('');
     const [loading, setLoading] = useState(true);
@@ -114,13 +113,6 @@ const CreateAppointmentPatient = ({ navigation }) => {
             const token = await AsyncStorage.getItem('userToken');
             const formattedDate = selectedDate.toISOString().split('T')[0];
 
-            console.log('Submitting appointment:', {
-                doctor: selectedDoctor,
-                appointment_date: formattedDate,
-                appointment_time: selectedSlot,
-                symptoms
-            });
-
             const response = await fetch(`${API_URL}/api/appointments/create/`, {
                 method: 'POST',
                 headers: {
@@ -132,7 +124,7 @@ const CreateAppointmentPatient = ({ navigation }) => {
                     doctor: selectedDoctor,
                     appointment_date: formattedDate,
                     appointment_time: selectedSlot,
-                    symptoms: symptoms || ''
+                    reason: reason || ''
                 })
             });
 
@@ -239,9 +231,9 @@ const CreateAppointmentPatient = ({ navigation }) => {
 
             <TextInput
                 style={styles.input}
-                placeholder="Symptoms or Notes"
-                value={symptoms}
-                onChangeText={setSymptoms}
+                placeholder="Reason for Appointment"
+                value={reason}
+                onChangeText={setReason}
                 multiline
                 numberOfLines={4}
             />

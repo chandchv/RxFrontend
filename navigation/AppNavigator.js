@@ -17,7 +17,7 @@ import PrescriptionsScreen from '../screens/PrescriptionsScreen';
 import DoctorDashboard from '../screens/doctor/DoctorDashboard';
 import PatientDashboard from '../screens/patient/PatientDashboard';
 import ClinicManagementScreen from '../screens/ClinicManagementScreen';
-import AddDoctorProfileScreen from '../screens/AddDoctorProfileScreen';
+import AddDoctorProfileScreen from '../screens/admin/AddDoctorProfileScreen';
 import AddStaffScreen from '../screens/AddStaffScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import PrescriptionDetailScreen from '../screens/patient/PrescriptionDetailScreen';

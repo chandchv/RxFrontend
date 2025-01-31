@@ -13,7 +13,7 @@ import {
 import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_URL } from '../config';
+import { API_URL } from '../../config';
 
 const medicalCouncils = [
   "Andhra Pradesh Medical Council",	

@@ -121,7 +121,7 @@ const PatientDashboard = ({ navigation }) => {
           'Appointments',
           appointments.length,
           'event',
-          () => navigation.navigate('Appointments')
+          () => navigation.navigate('PatientAppointments')
         )}
         {renderDashboardCard(
           'Prescriptions',
@@ -139,7 +139,7 @@ const PatientDashboard = ({ navigation }) => {
 
       <TouchableOpacity 
         style={styles.newAppointmentButton}
-        onPress={() => navigation.navigate('BookAppointment')}
+        onPress={() => navigation.navigate('CreateAppointmentPatient')}
       >
         <Icon name="add" size={24} color="#fff" />
         <Text style={styles.newAppointmentText}>Book New Appointment</Text>

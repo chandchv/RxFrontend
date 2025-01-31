@@ -34,6 +34,8 @@ import EditPatient from './screens/admin/EditPatient';
 import PatientDetails from './screens/doctor/PatientDetails';
 import PrescriptionDetailScreen from './screens/patient/PrescriptionDetailScreen';
 import PrescriptionHistoryScreen from './screens/PrescriptionHistoryScreen';
+import AppointmentsListPatient from './screens/patient/AppointmentsList';
+import AddDoctorProfileScreen from './screens/admin/AddDoctorProfileScreen';
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
 
@@ -59,7 +61,7 @@ const PatientDrawerNavigator = () => {
       />
       <Drawer.Screen 
         name="PatientAppointments" 
-        component={Appointments}
+        component={AppointmentsListPatient}
         options={{
           title: 'My Appointments',
           drawerIcon: ({color}) => <Icon name="event" size={24} color={color} />,
@@ -204,6 +206,14 @@ const AdminDrawerNavigator = () => {
         options={{
           title: 'Admin Dashboard',
           drawerIcon: ({color}) => <Icon name="dashboard" size={24} color={color} />,
+        }}
+      />
+      <Drawer.Screen 
+        name="AddDoctor" 
+        component={AddDoctorProfileScreen}
+        options={{
+          title: 'Add Doctor',
+          drawerIcon: ({color}) => <Icon name="people" size={24} color={color} />,
         }}
       />
       <Drawer.Screen 
