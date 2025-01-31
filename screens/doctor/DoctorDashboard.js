@@ -14,6 +14,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { DrawerActions } from '@react-navigation/native';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import LogoutButton from '../../components/LogoutButton';
+import { useAuth } from '../../contexts/AuthContext';
 
 const Drawer = createDrawerNavigator({
   // Your screens here
@@ -21,11 +22,14 @@ const Drawer = createDrawerNavigator({
 
 const DoctorDashboard = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
-  const [doctorInfo, setDoctorInfo] = useState(null);  
+  const [doctorInfo, setDoctorInfo] = useState(null);
   const [patients, setPatients] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [todayAppointments, setTodayAppointments] = useState([]);
   const [upcomingAppointments, setUpcomingAppointments] = useState([]);
+  const [error, setError] = useState(null);
+  const { user } = useAuth();
+
   React.useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => <LogoutButton />,

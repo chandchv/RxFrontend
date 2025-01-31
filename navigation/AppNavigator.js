@@ -146,6 +146,7 @@ const AdminStack = () => (
       name="EditDoctor" 
       component={EditDoctor} 
     />
+    <Stack.Screen name="AddStaffScreen" component={AddStaffScreen} />
   </Stack.Navigator>
 );
 
@@ -203,6 +204,10 @@ const AppNavigator = () => {
       ) : user.is_superuser || user.role === 'ADMIN' ? (
         // Admin/Superuser Routes
         <>
+          <Stack.Screen 
+            name="AddStaffScreen" 
+            component={AddStaffScreen}
+            options={{ title: 'Add Staff' }} />
           <Stack.Screen 
             name="ClinicAdminDashboard" 
             component={ClinicAdminDashboard}
@@ -328,7 +333,7 @@ const AppNavigator = () => {
       <Stack.Screen name="PrescriptionDetail" component={PrescriptionDetailScreen} />
       
       <Stack.Screen name="AddDoctorProfile" component={AddDoctorProfileScreen} />
-      <Stack.Screen name="AddStaff" component={AddStaffScreen} />
+      <Stack.Screen name="AddStaffScreen" component={AddStaffScreen} />
       <Stack.Screen 
         name="AppointmentDetails" 
         component={AppointmentDetails}

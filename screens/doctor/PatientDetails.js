@@ -13,12 +13,18 @@ import { API_URL } from '../../config';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
 const PatientDetails = ({ route, navigation }) => {
-  const { patientId } = route.params;
+  const patientId = route?.params?.patientId;
   const [patient, setPatient] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchPatientDetails();
+    if (patientId) {
+      fetchPatientDetails();
+    } else {
+      setLoading(false);
+      Alert.alert('Error', 'Patient ID not found');
+      navigation.goBack();
+    }
   }, [patientId]);
 
   const fetchPatientDetails = async () => {
@@ -40,6 +46,7 @@ const PatientDetails = ({ route, navigation }) => {
     } catch (error) {
       console.error('Error fetching patient details:', error);
       Alert.alert('Error', 'Failed to load patient details');
+      navigation.goBack();
     } finally {
       setLoading(false);
     }
@@ -57,6 +64,12 @@ const PatientDetails = ({ route, navigation }) => {
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>Patient not found</Text>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.backButtonText}>Go Back</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -67,7 +80,7 @@ const PatientDetails = ({ route, navigation }) => {
         <Text style={styles.patientName}>
           {patient.first_name} {patient.last_name}
         </Text>
-        <Text style={styles.patientId}>ID: {patient.id}</Text>
+        <Text style={styles.patientId}>ID: {patient.patient_id}</Text>
       </View>
 
       <View style={styles.section}>
@@ -78,13 +91,11 @@ const PatientDetails = ({ route, navigation }) => {
         </View>
         <View style={styles.infoRow}>
           <Text style={styles.label}>Gender:</Text>
-          <Text style={styles.value}>
-            {patient.gender === 'M' ? 'Male' : 'Female'}
-          </Text>
+          <Text style={styles.value}>{patient.gender_display || 'N/A'}</Text>
         </View>
         <View style={styles.infoRow}>
           <Text style={styles.label}>Phone:</Text>
-          <Text style={styles.value}>{patient.phone || 'N/A'}</Text>
+          <Text style={styles.value}>{patient.phone_number || 'N/A'}</Text>
         </View>
         <View style={styles.infoRow}>
           <Text style={styles.label}>Email:</Text>
@@ -95,7 +106,7 @@ const PatientDetails = ({ route, navigation }) => {
       <View style={styles.actionButtons}>
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: '#4CAF50' }]}
-          onPress={() => navigation.navigate('CreateAppointment', { patientId: patient.id })}
+          onPress={() => navigation.navigate('CreateAppointment', { patientId })}
         >
           <Icon name="event" size={24} color="#fff" />
           <Text style={styles.actionButtonText}>New Appointment</Text>
@@ -103,7 +114,7 @@ const PatientDetails = ({ route, navigation }) => {
 
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: '#2196F3' }]}
-          onPress={() => navigation.navigate('CreatePrescription', { patientId: patient.id })}
+          onPress={() => navigation.navigate('CreatePrescription', { patientId })}
         >
           <Icon name="description" size={24} color="#fff" />
           <Text style={styles.actionButtonText}>New Prescription</Text>
@@ -195,6 +206,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     marginLeft: 8,
+  },
+  backButton: {
+    backgroundColor: '#2196F3',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  backButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });
 

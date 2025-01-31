@@ -1,8 +1,8 @@
     // Get the local IP address of your machine where Django is running
-const LOCAL_IP = '192.168.29.58:8000'; // Replace with your actual IP address
+const LOCAL_IP = '192.168.29.57:8000'; // Replace with your actual IP address
 
-const DEV_API_URL = 'http://192.168.29.58:8000';
-const PROD_API_URL = 'http://192.168.29.58:8000'; // Replace with your production URL
+const DEV_API_URL = 'http://192.168.29.57:8000';
+const PROD_API_URL = 'http://192.168.29.57:8000'; // Replace with your production URL
 
 export const API_URL = __DEV__ ? DEV_API_URL : PROD_API_URL;
 

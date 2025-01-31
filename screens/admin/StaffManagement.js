@@ -10,36 +10,110 @@ import {
   ActivityIndicator,
   Modal
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
 const StaffManagement = ({ navigation }) => {
   const [staff, setStaff] = useState([]);
+  const [clinics, setClinics] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [clinicId, setClinicId] = useState(null);
 
   useEffect(() => {
-    fetchStaff();
+    fetchClinics();
   }, []);
 
-  const fetchStaff = async () => {
+  useEffect(() => {
+    if (clinicId) {
+      fetchStaffForClinic(clinicId);
+    }
+  }, [clinicId]);
+
+  const fetchClinics = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(`${API_URL}/api/clinic-admin/staff/`, {
+      const response = await fetch(`${API_URL}/api/clinics/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
 
-      if (!response.ok) throw new Error('Failed to fetch staff');
+      if (!response.ok) throw new Error('Failed to fetch clinics');
       const data = await response.json();
+      setClinics(data);
+      
+      if (data.length > 0) {
+        setClinicId(data[0].id);
+      }
+    } catch (error) {
+      console.error('Error fetching clinics:', error);
+      Alert.alert('Error', 'Failed to load clinics');
+    }
+  };
+
+  const getClinicAndFetchStaff = async () => {
+    try {
+      setLoading(true);
+      const token = await AsyncStorage.getItem('userToken');
+      
+      // First get the clinics list
+      const clinicsResponse = await fetch(`${API_URL}/api/clinics/`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!clinicsResponse.ok) {
+        const errorText = await clinicsResponse.text();
+        console.error('Clinics error:', errorText);
+        throw new Error('Failed to fetch clinics');
+      }
+      
+      const clinics = await clinicsResponse.json();
+      console.log('Clinics data:', clinics); // Debug log
+      
+      if (clinics && clinics.length > 0) {
+        const clinic_id = clinics[0].id;
+        console.log('Selected clinic ID:', clinic_id); // Debug log
+        setClinicId(clinic_id);
+        await fetchStaffForClinic(clinic_id);
+      } else {
+        Alert.alert('Error', 'No clinic found');
+      }
+    } catch (error) {
+      console.error('Error getting clinic:', error);
+      Alert.alert('Error', 'Failed to load clinic information');
+    }
+  };
+
+  const fetchStaffForClinic = async (clinic_id) => {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      console.log('Fetching staff for clinic:', clinic_id); // Debug log
+      
+      const response = await fetch(`${API_URL}/api/admin/clinics/${clinic_id}/staff/`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        console.error('Staff fetch response:', response.status);
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        throw new Error('Failed to fetch staff');
+      }
+      const data = await response.json();
+      console.log('Staff data:', data); // Debug log
       setStaff(data);
     } catch (error) {
-      console.error(error);
+      console.error('Error fetching staff:', error);
       Alert.alert('Error', 'Failed to load staff members');
     } finally {
       setLoading(false);
@@ -50,7 +124,7 @@ const StaffManagement = ({ navigation }) => {
   const handleStatusChange = async (staffId, newStatus) => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(`${API_URL}/api/clinic-admin/staff/${staffId}/status/`, {
+      const response = await fetch(`${API_URL}/api/admin/clinics/${clinicId}/staff/${staffId}/status/`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -60,7 +134,7 @@ const StaffManagement = ({ navigation }) => {
       });
 
       if (!response.ok) throw new Error('Failed to update status');
-      fetchStaff();
+      fetchStaffForClinic(clinicId);
       setModalVisible(false);
       Alert.alert('Success', 'Staff status updated successfully');
     } catch (error) {
@@ -72,7 +146,7 @@ const StaffManagement = ({ navigation }) => {
   const handleRoleChange = async (staffId, newRole) => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(`${API_URL}/api/clinic-admin/staff/${staffId}/role/`, {
+      const response = await fetch(`${API_URL}/api/admin/clinics/${clinicId}/staff/${staffId}/role/`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -81,12 +155,21 @@ const StaffManagement = ({ navigation }) => {
         body: JSON.stringify({ role: newRole }),
       });
 
-      if (!response.ok) throw new Error('Failed to update role');
-      fetchStaff();
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        throw new Error('Failed to update role');
+      }
+
+      const data = await response.json();
+      console.log('Role update response:', data);
+
+      // Refresh the staff list
+      await fetchStaffForClinic(clinicId);
       setModalVisible(false);
-      Alert.alert('Success', 'Staff role updated successfully');
+      Alert.alert('Success', data.message || 'Staff role updated successfully');
     } catch (error) {
-      console.error(error);
+      console.error('Error updating role:', error);
       Alert.alert('Error', 'Failed to update staff role');
     }
   };
@@ -217,6 +300,25 @@ const StaffManagement = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
+        <View style={styles.clinicSelector}>
+          <Text style={styles.clinicLabel}>Select Clinic:</Text>
+          <Picker
+            selectedValue={clinicId}
+            style={styles.picker}
+            onValueChange={(itemValue) => setClinicId(itemValue)}
+          >
+            {clinics.map((clinic) => (
+              <Picker.Item 
+                key={clinic.id} 
+                label={clinic.name} 
+                value={clinic.id} 
+              />
+            ))}
+          </Picker>
+        </View>
+      </View>
+
+      <View style={styles.searchHeader}>
         <View style={styles.searchContainer}>
           <Icon name="search" size={24} color="#666" style={styles.searchIcon} />
           <TextInput
@@ -228,7 +330,7 @@ const StaffManagement = ({ navigation }) => {
         </View>
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => navigation.navigate('AddStaff')}
+          onPress={() => navigation.navigate('AddStaffScreen', { clinicId })}
         >
           <Icon name="add" size={24} color="#fff" />
         </TouchableOpacity>
@@ -243,7 +345,7 @@ const StaffManagement = ({ navigation }) => {
         refreshing={refreshing}
         onRefresh={() => {
           setRefreshing(true);
-          fetchStaff();
+          fetchStaffForClinic(clinicId);
         }}
         contentContainerStyle={styles.listContainer}
       />
@@ -264,11 +366,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   header: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  clinicSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  clinicLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginRight: 8,
+    color: '#333',
+  },
+  picker: {
+    flex: 1,
+    height: 40,
+  },
+  searchHeader: {
     flexDirection: 'row',
     padding: 16,
     backgroundColor: '#fff',
     alignItems: 'center',
-    elevation: 2,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
   },
   searchContainer: {
     flex: 1,

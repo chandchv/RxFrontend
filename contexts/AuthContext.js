@@ -127,6 +127,7 @@ export const AuthProvider = ({ children }) => {
       logout,
       isLoggedIn: !!user,
       isAdmin: user?.is_superuser || user?.role === 'SUPERUSER',
+      isClinicAdmin: user?.role === 'CLINIC_ADMIN',
       isDoctor: user?.role === 'DOCTOR',
       isPatient: user?.role === 'PATIENT'
     }}>

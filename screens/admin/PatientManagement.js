@@ -10,9 +10,11 @@ import {
   ActivityIndicator,
   Modal
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import ClinicSelector from '../../components/ClinicSelector';
 
 const PatientManagement = ({ navigation }) => {
   const [patients, setPatients] = useState([]);
@@ -23,16 +25,54 @@ const PatientManagement = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [assignDoctorModalVisible, setAssignDoctorModalVisible] = useState(false);
   const [doctors, setDoctors] = useState([]);
+  const [clinics, setClinics] = useState([]);
+  const [selectedClinic, setSelectedClinic] = useState(null);
+  const [clinicId, setClinicId] = useState(null);
 
   useEffect(() => {
-    fetchPatients();
+    fetchClinics();
     fetchDoctors();
   }, []);
 
-  const fetchPatients = async () => {
+  useEffect(() => {
+    if (selectedClinic) {
+      fetchPatients();
+    }
+  }, [selectedClinic]);
+
+  const fetchClinics = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(`${API_URL}/api/clinic-admin/patients/`, {
+      const response = await fetch(`${API_URL}/api/clinics/`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        console.error('Response status:', response.status);
+        throw new Error('Failed to fetch clinics');
+      }
+      
+      const data = await response.json();
+      console.log('Clinics data:', data);
+      setClinics(data);
+      if (data.length > 0) {
+        setSelectedClinic(data[0].id);
+      }
+    } catch (error) {
+      console.error('Error fetching clinics:', error);
+      Alert.alert('Error', 'Failed to load clinics');
+    }
+  };
+
+  const fetchPatients = async () => {
+    if (!selectedClinic) return;
+    
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      const response = await fetch(`${API_URL}/api/clinic-admin/patients/list/${selectedClinic}/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -95,12 +135,25 @@ const PatientManagement = ({ navigation }) => {
     }
   };
 
+  const handleEditPatient = (patientId) => {
+    if (selectedClinic) {
+      navigation.navigate('AdminStack', {
+        screen: 'EditPatient',
+        params: { 
+          patientId: patientId,
+          clinicId: selectedClinic 
+        }
+      });
+    }
+  };
+
   const renderPatientItem = ({ item }) => (
     <TouchableOpacity 
       style={styles.patientCard}
       onPress={() => {
         setSelectedPatient(item);
         setModalVisible(true);
+        setClinicId(item.clinic_id);
       }}
     >
       <View style={styles.patientInfo}>
@@ -229,6 +282,21 @@ const PatientManagement = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
+        <View style={styles.clinicSelector}>
+          <Picker
+            selectedValue={selectedClinic}
+            style={styles.picker}
+            onValueChange={(itemValue) => setSelectedClinic(itemValue)}
+          >
+            {clinics.map((clinic) => (
+              <Picker.Item 
+                key={clinic.id.toString()} 
+                label={clinic.name} 
+                value={clinic.id} 
+              />
+            ))}
+          </Picker>
+        </View>
         <View style={styles.searchContainer}>
           <Icon name="search" size={24} color="#666" style={styles.searchIcon} />
           <TextInput
@@ -240,7 +308,7 @@ const PatientManagement = ({ navigation }) => {
         </View>
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => navigation.navigate('AddPatient')}
+          onPress={() => navigation.navigate('AddPatient', { clinicId: selectedClinic })}
         >
           <Icon name="add" size={24} color="#fff" />
         </TouchableOpacity>
@@ -279,6 +347,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     alignItems: 'center',
     elevation: 2,
+  },
+  clinicSelector: {
+    flex: 1,
+    marginRight: 12,
+  },
+  picker: {
+    width: '100%',
+    height: 50,
   },
   searchContainer: {
     flex: 1,
