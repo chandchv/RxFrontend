@@ -50,7 +50,7 @@ const ClinicAdminDashboard = ({ navigation }) => {
       const token = await AsyncStorage.getItem('userToken');
       console.log('Fetching clinics with token:', token); // Debug log
 
-      const response = await fetch(`${API_URL}/api/clinics/`, {
+      const response = await fetch(`${API_URL}/users/api/clinics/`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -84,7 +84,7 @@ const ClinicAdminDashboard = ({ navigation }) => {
       const token = await AsyncStorage.getItem('userToken');
       console.log('Fetching dashboard for clinic:', clinicId);
 
-      const response = await fetch(`${API_URL}/api/clinic-admin/dashboard/${clinicId}/`, {
+      const response = await fetch(`${API_URL}/users/api/clinic-admin/dashboard/${clinicId}/`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -122,7 +122,7 @@ const ClinicAdminDashboard = ({ navigation }) => {
       const token = await AsyncStorage.getItem('userToken');
       
       // Update current clinic in backend
-      const response = await fetch(`${API_URL}/api/clinics/current/`, {
+      const response = await fetch(`${API_URL}/users/api/clinics/current/`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -153,13 +153,13 @@ const ClinicAdminDashboard = ({ navigation }) => {
     {
       title: 'Doctors',
       icon: 'medical-services',
-      screen: 'DoctorManagement',
+      screen: 'DoctorsList',
       color: '#4CAF50'
     },
     {
       title: 'Patients',
       icon: 'people',
-      screen: 'PatientManagement',
+      screen: 'PatientManagement', 
       color: '#2196F3'
     },
     {
@@ -173,6 +173,24 @@ const ClinicAdminDashboard = ({ navigation }) => {
       icon: 'badge',
       screen: 'StaffManagement',
       color: '#9C27B0'
+    },
+    {
+      title: 'Laboratory',
+      icon: 'science',
+      screen: 'LabDashboard',
+      color: '#00BCD4'
+    },
+    {
+      title: 'Pharmacy',
+      icon: 'local-pharmacy',
+      screen: 'PharmacyDashboard',
+      color: '#E91E63'
+    },
+    {
+      title: 'Billing',
+      icon: 'receipt',
+      screen: 'BillingDashboard',
+      color: '#3F51B5'
     },
     {
       title: 'Reports',
@@ -206,7 +224,7 @@ const ClinicAdminDashboard = ({ navigation }) => {
     <ScrollView 
       style={styles.container}
       refreshControl={
-        <RefreshControl 
+        <RefreshControl   
           refreshing={refreshing} 
           onRefresh={() => fetchDashboardData(selectedClinic)}
           colors={['#0066cc']}

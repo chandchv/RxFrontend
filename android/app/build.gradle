@@ -86,9 +86,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.rx.rxfrontend'
+    namespace 'com.chandreddy.rxapp'
     defaultConfig {
-        applicationId 'com.rx.rxfrontend'
+        applicationId 'com.chandreddy.rxapp'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

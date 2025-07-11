@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Image,
+  Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
@@ -23,26 +24,49 @@ const PrescriptionDetailScreen = ({ route }) => {
   const fetchPrescriptionDetails = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(`${API_URL}/api/patient/prescriptions_detail/${prescriptionId}/`, {
+      const response = await fetch(`${API_URL}/users/api/patients/prescriptions/${prescriptionId}/details/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
         },
       });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Prescription not found');
+        }
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch prescription details');
+      }
+
       const data = await response.json();
+      // Ensure items is always an array
+      data.items = data.medicines || [];
       setPrescription(data);
       
       // Fetch clinic details using clinic_id from prescription
       if (data.clinic_id) {
-        const clinicResponse = await fetch(`${API_URL}/api/clinics/${data.clinic_id}/`, {
+        const clinicResponse = await fetch(`${API_URL}/users/api/clinic/profile/${data.clinic_id}/`, {
           headers: {
             'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
           },
         });
+        
+        if (!clinicResponse.ok) {
+          console.error('Failed to fetch clinic details:', data.clinic_id);
+          setClinicDetails(null);
+          return;
+        }
+        
         const clinicData = await clinicResponse.json();
         setClinicDetails(clinicData);
       }
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error fetching prescription details:', error);
+      Alert.alert('Error', error.message || 'Failed to fetch prescription details');
     } finally {
       setLoading(false);
     }
@@ -61,47 +85,49 @@ const PrescriptionDetailScreen = ({ route }) => {
       {/* Header with Doctor and Hospital Info */}
       <View style={styles.header}>
         <View style={styles.doctorSection}>
-          <Text style={styles.doctorName}>Dr. {prescription.doctor_name}</Text>
-          <Text style={styles.qualification}>{prescription.doctor_qualification}</Text>
-          <Text style={styles.regNo}>Reg. No: {prescription.doctor_registration_number}</Text>
+          <Text style={styles.doctorName}>Dr. {prescription.doctor_name || 'N/A'}</Text>
+          <Text style={styles.qualification}>{prescription.doctor_qualification || 'N/A'}</Text>
+          <Text style={styles.regNo}>Reg. No: {prescription.doctor_registration_number || 'N/A'}</Text>
         </View>
 
-        <View style={styles.clinicSection}>
-          {clinicDetails?.logo_url && (
-            <Image 
-              source={{ uri: clinicDetails.logo_url }} 
-              style={styles.logo}
-            />
-          )}
-          <Text style={styles.hospitalName}>{clinicDetails?.name}</Text>
-          <Text style={styles.hospitalAddress}>
-            {clinicDetails?.address}
-          </Text>
-          <Text style={styles.hospitalContact}>
-            Ph: {clinicDetails?.phone_number}
-            {clinicDetails?.timing && `, Timing: ${clinicDetails.timing}`}
-          </Text>
-          {clinicDetails?.closed_on && (
-            <Text>Closed: {clinicDetails.closed_on}</Text>
-          )}
-        </View>
+        {clinicDetails && (
+          <View style={styles.clinicSection}>
+            {clinicDetails?.logo_url && (
+              <Image 
+                source={{ uri: clinicDetails.logo_url }} 
+                style={styles.logo}
+              />
+            )}
+            <Text style={styles.hospitalName}>{clinicDetails?.name || 'N/A'}</Text>
+            <Text style={styles.hospitalAddress}>
+              {clinicDetails?.address || 'N/A'}
+            </Text>
+            <Text style={styles.hospitalContact}>
+              Ph: {clinicDetails?.phone_number || 'N/A'}
+              {clinicDetails?.timing && `, Timing: ${clinicDetails.timing}`}
+            </Text>
+            {clinicDetails?.closed_on && (
+              <Text>Closed: {clinicDetails.closed_on}</Text>
+            )}
+          </View>
+        )}
       </View>
 
       {/* Date */}
-      <Text style={styles.date}>Date: {prescription.date}</Text>
+      <Text style={styles.date}>Date: {prescription.created_at || 'N/A'}</Text>
 
       {/* Patient Details */}
       <View style={styles.patientSection}>
         <Text style={styles.patientHeader}>
-          ID: {prescription.id} - {prescription.patient_type} ({prescription.patient_gender}) / {prescription.patient_age} Y    
+          ID: {prescription.id} - {prescription.patient_type || 'Regular'} ({prescription.patient_gender || 'N/A'}) / {prescription.patient_age || 'N/A'} Y    
           {prescription.patient_mobile && `Mob. No.: ${prescription.patient_mobile}`}
         </Text>
-        <Text>Address: {prescription.patient_address}</Text>
+        <Text>Address: {prescription.patient_address || 'N/A'}</Text>
         <Text>
-          Weight (Kg): {prescription.patient_weight}, 
-          Height (Cm): {prescription.patient_height} 
+          Weight (Kg): {prescription.patient_weight || 'N/A'}, 
+          Height (Cm): {prescription.patient_height || 'N/A'} 
           {prescription.patient_bmi && `(B.M.I. = ${prescription.patient_bmi})`}, 
-          BP: {prescription.patient_bp}
+          BP: {prescription.patient_bp || 'N/A'}
         </Text>
       </View>
 
@@ -109,55 +135,53 @@ const PrescriptionDetailScreen = ({ route }) => {
       <View style={styles.twoColumnSection}>
         <View style={styles.column}>
           <Text style={styles.sectionTitle}>Chief Complaints</Text>
-          <Text style={styles.contentText}>{prescription.chief_complaints}</Text>
+          <Text style={styles.contentText}>{prescription.chief_complaints || 'None'}</Text>
         </View>
         <View style={styles.column}>
           <Text style={styles.sectionTitle}>Clinical Findings</Text>
-          <Text style={styles.contentText}>{prescription.clinical_findings}</Text>
+          <Text style={styles.contentText}>{prescription.clinical_findings || 'None'}</Text>
         </View>
       </View>
 
       {/* Diagnosis */}
       <View style={styles.diagnosisSection}>
         <Text style={styles.sectionTitle}>Diagnosis:</Text>
-        <Text style={styles.contentText}>{prescription.diagnosis}</Text>
+        <Text style={styles.contentText}>{prescription.diagnosis || 'None'}</Text>
       </View>
 
       {/* Medications */}
       <View style={styles.medicationSection}>
-        <Text style={styles.sectionTitle}>R</Text>
         <View style={styles.medicationHeader}>
-          <Text style={styles.columnHeader}>Medicine Name</Text>
-          <Text style={styles.columnHeader}>Dosage</Text>
-          <Text style={styles.columnHeader}>Duration</Text>
+          <Text style={[styles.columnHeader, styles.medicineNameColumn]}>Medicine</Text>
+          <Text style={[styles.columnHeader, styles.dosageColumn]}>Dosage</Text>
+          <Text style={[styles.columnHeader, styles.durationColumn]}>Duration</Text>
         </View>
-        {prescription.items.map((item, index) => (
-          <View key={index} style={styles.medicationRow}>
-            <View style={styles.medicineNameColumn}>
-              <Text style={styles.medicineName}>{index + 1}) {item.medicine}</Text>
-              {item.generic_name && (
-                <Text style={styles.genericName}>{item.generic_name}</Text>
-              )}
+        {prescription.items && prescription.items.length > 0 ? (
+          prescription.items.map((medicine, index) => (
+            <View key={index} style={styles.medicationRow}>
+              <View style={styles.medicineNameColumn}>
+                <Text style={styles.medicineName}>{medicine.name}</Text>
+                <Text style={styles.genericName}>{medicine.instructions}</Text>
+              </View>
+              <Text style={styles.dosageColumn}>{medicine.dosage}</Text>
+              <Text style={styles.durationColumn}>{medicine.duration}</Text>
             </View>
-            <Text style={styles.dosageColumn}>{item.dosage}</Text>
-            <Text style={styles.durationColumn}>
-              {item.duration} {item.duration_unit}
-              {'\n'}(Tot:{item.duration} {item.duration_unit})
-            </Text>
-          </View>
-        ))}
+          ))
+        ) : (
+          <Text style={styles.contentText}>No medications prescribed</Text>
+        )}
       </View>
 
       {/* Advice */}
       <View style={styles.adviceSection}>
         <Text style={styles.sectionTitle}>Advice:</Text>
-        <Text style={styles.contentText}>{prescription.advice}</Text>
+        <Text style={styles.contentText}>{prescription.advice || 'None'}</Text>
       </View>
 
       {/* Follow Up */}
       <View style={styles.followUpSection}>
         <Text style={styles.followUpText}>
-          Follow Up: {prescription.follow_up_date}
+          Follow Up: {prescription.follow_up_date || 'Not specified'}
         </Text>
       </View>
 

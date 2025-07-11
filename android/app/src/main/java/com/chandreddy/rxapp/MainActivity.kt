@@ -1,4 +1,4 @@
-package com.rx.rxfrontend
+package com.chandreddy.rxapp
 
 import android.os.Build
 import android.os.Bundle

@@ -26,7 +26,7 @@ const AppointmentDetails = ({ route, navigation }) => {
   const fetchAppointmentDetails = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(`${API_URL}/api/doctor/appointments/${appointmentId}/`, {
+      const response = await fetch(`${API_URL}/users/api/doctor/appointments/${appointmentId}/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json',
@@ -52,7 +52,7 @@ const AppointmentDetails = ({ route, navigation }) => {
   const fetchPreviousPrescriptions = async (patientId) => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(`${API_URL}/api/doctor/prescriptions/patient/${patientId}/`, {
+      const response = await fetch(`${API_URL}/users/api/doctor/prescriptions/patient/${patientId}/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json',
@@ -121,7 +121,7 @@ const AppointmentDetails = ({ route, navigation }) => {
   const updateAppointmentStatus = async (newStatus) => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(`${API_URL}/api/doctor/appointments/${appointmentId}/update-status/`, {
+      const response = await fetch(`${API_URL}/users/api/doctor/appointments/${appointmentId}/update-status/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -183,12 +183,21 @@ const AppointmentDetails = ({ route, navigation }) => {
           <Text style={styles.buttonText}>Create Prescription</Text>
         </TouchableOpacity>
 
-        {appointment.status !== 'completed' && (
+        {appointment.status === 'scheduled' && (
           <TouchableOpacity 
             style={[styles.button, { backgroundColor: '#28a745' }]}
             onPress={() => updateAppointmentStatus('completed')}>
             <Icon name="check-circle" size={24} color="#fff" />
             <Text style={styles.buttonText}>Mark as Completed</Text>
+          </TouchableOpacity>
+        )}
+
+        {appointment.status === 'scheduled' && (
+          <TouchableOpacity 
+            style={[styles.button, { backgroundColor: '#FFA000' }]}
+            onPress={() => updateAppointmentStatus('missed')}>
+            <Icon name="event-busy" size={24} color="#fff" />
+            <Text style={styles.buttonText}>Mark as Missed</Text>
           </TouchableOpacity>
         )}
       </View>

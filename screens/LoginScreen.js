@@ -22,14 +22,19 @@ const LoginScreen = ({ navigation }) => {
       return;
     }
 
-    setLoading(true);
     try {
+      setLoading(true);
       const result = await login(username, password);
+      
       if (!result.success) {
         Alert.alert('Error', result.error || 'Login failed');
+      } else {
+        console.log('Login successful:', result.user);
+        // Navigation will be handled by AppNavigator based on user role
       }
     } catch (error) {
-      Alert.alert('Error', error.message || 'An error occurred');
+      console.error('Login error:', error);
+      Alert.alert('Error', 'Failed to connect to server');
     } finally {
       setLoading(false);
     }
@@ -63,6 +68,15 @@ const LoginScreen = ({ navigation }) => {
           <Text style={styles.buttonText}>Login</Text>
         )}
       </TouchableOpacity>
+
+      <View style={styles.linksContainer}>
+        <TouchableOpacity 
+          style={styles.linkButton}
+          onPress={() => navigation.navigate('PatientSignup')}
+        >
+          <Text style={styles.linkText}>Register as Patient</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -84,12 +98,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     padding: 15,
     borderRadius: 8,
-    marginBottom: 10,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#ddd',
   },
   button: {
-    backgroundColor: '#0066cc',
+    backgroundColor: '#2196F3',
     padding: 15,
     borderRadius: 8,
     alignItems: 'center',
@@ -102,6 +116,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  linksContainer: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  linkButton: {
+    padding: 10,
+  },
+  linkText: {
+    color: '#2196F3',
+    fontSize: 14,
+  }
 });
 
 export default LoginScreen;

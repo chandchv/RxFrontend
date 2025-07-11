@@ -1,4 +1,4 @@
-package com.rx.rxfrontend
+package com.chandreddy.rxapp
 
 import android.app.Application
 import android.content.res.Configuration

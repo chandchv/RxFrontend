@@ -39,7 +39,7 @@ const CreateAppointmentDoctor = ({ navigation, route }) => {
   const fetchPatients = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(`${API_URL}/api/doctor/patients/`, {
+      const response = await fetch(`${API_URL}/users/api/doctor/patients/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -57,7 +57,7 @@ const CreateAppointmentDoctor = ({ navigation, route }) => {
       const token = await AsyncStorage.getItem('userToken');
       console.log('Fetching doctor info with token:', token);
       
-      const response = await fetch(`${API_URL}/api/doctor/me/`, {
+      const response = await fetch(`${API_URL}/users/api/doctor/me/`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -82,7 +82,7 @@ const CreateAppointmentDoctor = ({ navigation, route }) => {
       console.log('Fetching slots for date:', formattedDate);
       
       const response = await fetch(
-        `${API_URL}/api/doctor/available-slots/?date=${formattedDate}`, {
+        `${API_URL}/users/api/doctor/available-slots/?date=${formattedDate}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -126,7 +126,7 @@ const CreateAppointmentDoctor = ({ navigation, route }) => {
       const doctorData = await AsyncStorage.getItem('userData');
       const doctor = JSON.parse(doctorData);
 
-      const response = await fetch(`${API_URL}/api/doctor/appointments/create/`, {
+      const response = await fetch(`${API_URL}/users/api/doctor/appointments/create/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -146,8 +146,12 @@ const CreateAppointmentDoctor = ({ navigation, route }) => {
         throw new Error(data.error || 'Failed to create appointment');
       }
 
-      Alert.alert('Success', 'Appointment created successfully');
-      navigation.goBack();
+      Alert.alert('Success', 'Appointment created successfully', [
+        {
+          text: 'OK',
+          onPress: () => navigation.navigate('DoctorDashboard')
+        }
+      ]);
 
     } catch (error) {
       console.error('Error creating appointment:', error);

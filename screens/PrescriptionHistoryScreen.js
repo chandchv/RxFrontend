@@ -17,7 +17,7 @@ const PrescriptionHistoryScreen = ({ route }) => {
       try {
         const response = await fetch(`${API_URL}/api/prescriptions/${patientId}/`, {
           headers: {
-            'Authorization': `Bearer ${yourAuthToken}`,  // Replace with actual token
+            'Authorization': `Bearer ${token}`,  // Replace with actual token
           },
         });
         const data = await response.json();

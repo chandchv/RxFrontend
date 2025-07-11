@@ -13,7 +13,7 @@ import {
 import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_URL } from '../config';
+import { API_URL } from '../../config';
 
 const medicalCouncils = [
   "Andhra Pradesh Medical Council",	
@@ -59,11 +59,10 @@ const medicalCouncils = [
 
 ];
 
-const AddDoctorProfileScreen = ({ route, navigation }) => {
+const AddDoctor = ({ route, navigation }) => {
   // Get clinicId from route params
   const { clinicId } = route.params || {};
-  console.log('Clinic ID:', clinicId); // Debug log
-
+ 
   // Verification state
   const [name, setName] = useState('');
   const [licenseNumber, setLicenseNumber] = useState('');
@@ -79,7 +78,7 @@ const AddDoctorProfileScreen = ({ route, navigation }) => {
 
   const getCsrfToken = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/get-csrf-token/`, {
+      const response = await fetch(`${API_URL}/users/api/get-csrf-token/`, {
         method: 'GET',
         credentials: 'include',
       });
@@ -167,10 +166,20 @@ const AddDoctorProfileScreen = ({ route, navigation }) => {
   const createProfile = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
+      
+      // Get clinicId from AsyncStorage if not passed through route
+      const storedClinicId = await AsyncStorage.getItem('clinicId');
+      const effectiveClinicId = clinicId || storedClinicId;
+      
+      if (!effectiveClinicId) {
+        Alert.alert('Error', 'Clinic ID not found');
+        return;
+      }
+
       const formData = new FormData();
       
       // Add clinic ID to form data
-      formData.append('clinic', clinicId);
+      formData.append('clinic_id', effectiveClinicId); // Changed from 'clinic' to 'clinic_id'
       
       // Add verified data
       formData.append('name', name);
@@ -191,7 +200,14 @@ const AddDoctorProfileScreen = ({ route, navigation }) => {
         });
       }
 
-      console.log('Submitting form data:', Object.fromEntries(formData)); // Debug log
+      console.log('Submitting form data:', {
+        clinic_id: effectiveClinicId,
+        name:name,
+        license_number: licenseNumber,
+        medical_council: medicalCouncil,
+        specialization:specialization,  
+        consultation_fee: consultationFee
+      });
 
       const response = await fetch(`${API_URL}/doctors/api/create/`, {
         method: 'POST',
@@ -202,18 +218,19 @@ const AddDoctorProfileScreen = ({ route, navigation }) => {
         body: formData,
       });
 
-      const data = await response.json();
-      console.log('Server response:', data); // Debug log
-
-      if (response.ok) {
-        Alert.alert('Success', 'Doctor profile created successfully!');
-        navigation.goBack();
-      } else {
-        throw new Error(data.message || 'Failed to create profile');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create profile');
       }
+
+      const data = await response.json();
+      console.log('Server response:', data);
+
+      Alert.alert('Success', 'Doctor profile created successfully!');
+      navigation.goBack();
     } catch (error) {
       console.error('Profile creation error:', error);
-      Alert.alert('Error', 'Failed to create doctor profile');
+      Alert.alert('Error', 'Failed to create doctor profile: ' + error.message);
     }
   };
 
@@ -374,4 +391,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AddDoctorProfileScreen; 
+export default AddDoctor; 
