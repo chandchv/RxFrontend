@@ -15,6 +15,7 @@ import { DrawerActions } from '@react-navigation/native';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import LogoutButton from '../../components/LogoutButton';
 import { useAuth } from '../../contexts/AuthContext';
+import createApiClient from '../../utils/apiClient';
 
 const Drawer = createDrawerNavigator({
   // Your screens here
@@ -28,7 +29,9 @@ const DoctorDashboard = ({ navigation }) => {
   const [todayAppointments, setTodayAppointments] = useState([]);
   const [upcomingAppointments, setUpcomingAppointments] = useState([]);
   const [error, setError] = useState(null);
-  const { user } = useAuth();
+  const { user, makeAuthenticatedRequest } = useAuth();
+  const apiClient = createApiClient();
+  const [patient_data, setPatientData] = useState([]);
 
   React.useLayoutEffect(() => {
     navigation.setOptions({
@@ -62,9 +65,9 @@ const DoctorDashboard = ({ navigation }) => {
       color: '#FF9800'
     },
     {
-      title: 'Prescriptions',
+      title: 'Prescription List',
       icon: 'description',
-      onPress: () => navigation.navigate('PrescriptionList'),
+      onPress: () => navigation.navigate('PrescriptionListScreen'),
       color: '#607D8B'
     },
     {
@@ -82,107 +85,56 @@ const DoctorDashboard = ({ navigation }) => {
   ];
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    if (user) {
+      fetchData();
+    }
+  }, [user]);
 
-  const fetchDashboardData = async () => {
+   const fetchData = async () => {
     try {
-      const userData = await AsyncStorage.getItem('userData');
-      if (userData) {
-        setDoctorInfo(JSON.parse(userData));
+      setLoading(true);
+      
+      // Fetch dashboard data (includes appointments and other info)
+      const dashboardResponse = await makeAuthenticatedRequest('/users/api/doctor/dashboard/');
+      if (dashboardResponse?.ok) {
+        const dashboardData = await dashboardResponse.json();
+        console.log('Dashboard data received:', dashboardData);
+        
+        // Set doctor info
+        setDoctorInfo(dashboardData.doctor);
+        
+        // Extract appointments from dashboard data
+        const todayAppts = dashboardData.todays_appointments || [];
+        const upcomingAppts = dashboardData.upcoming_appointments || [];
+        
+        setTodayAppointments(todayAppts);
+        setUpcomingAppointments(upcomingAppts);
+        setAppointments([...todayAppts, ...upcomingAppts]);
+      } else {
+        console.error('Failed to fetch dashboard data:', dashboardResponse?.status);
       }
-      await Promise.all([
-        fetchPatients(),
-        fetchAppointments(),
-      ]);
+
+      // Fetch patients separately
+      const patientsResponse = await makeAuthenticatedRequest('/users/api/doctor/patients/');
+      if (patientsResponse?.ok) {
+        const patientsData = await patientsResponse.json();
+        console.log('Patients data received:', patientsData);
+        
+        // patientsData has structure: { patients: [...] }
+        const patientsArray = patientsData.patients || [];
+        setPatients(patientsArray);
+        setPatientData(patientsArray);
+      } else {
+        console.error('Failed to fetch patients:', patientsResponse?.status);
+      }
+      
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
-      Alert.alert('Error', 'Failed to load dashboard data');
+      setError(error.message);
     } finally {
       setLoading(false);
     }
   };
-
-  const fetchPatients = async () => {
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(`${API_URL}/api/doctor/patients/`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
-
-      const data = await response.json();
-      setPatients(Array.isArray(data) ? data : []);
-
-    } catch (error) {
-      console.error('Error fetching patients:', error);
-      setPatients([]);
-      Alert.alert('Error', 'Failed to load patients');
-    }
-  };
-
-  const fetchAppointments = async () => {
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(`${API_URL}/api/doctor/appointments/`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
-
-      const responseText = await response.text();
-      console.log('Raw appointments response:', responseText);
-
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (error) {
-        console.error('Error parsing appointments JSON:', error);
-        throw new Error('Invalid response format');
-      }
-
-      const appointmentsArray = Array.isArray(data) ? data : data.results || [];
-      setAppointments(appointmentsArray);
-      
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      const todayAppts = appointmentsArray.filter(apt => {
-        const aptDate = new Date(apt.appointment_date);
-        aptDate.setHours(0, 0, 0, 0);
-        return aptDate.getTime() === today.getTime();
-      });
-
-      const upcomingAppts = appointmentsArray.filter(apt => {
-        const aptDate = new Date(apt.appointment_date);
-        aptDate.setHours(0, 0, 0, 0);
-        return aptDate.getTime() > today.getTime();
-      });
-
-      setTodayAppointments(todayAppts);
-      setUpcomingAppointments(upcomingAppts);
-
-    } catch (error) {
-      console.error('Error fetching appointments:', error);
-      setAppointments([]);
-      setTodayAppointments([]);
-      setUpcomingAppointments([]);
-      Alert.alert('Error', 'Failed to load appointments');
-    }
-  };
-
-  
 
   if (loading) {
     return (
@@ -195,8 +147,9 @@ const DoctorDashboard = ({ navigation }) => {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Doctor Dashboard</Text>
-        
+        <Text style={styles.headerTitle}>
+          Welcome, Dr. {doctorInfo?.user?.first_name || user?.firstName || ''} {doctorInfo?.user?.last_name || user?.lastName || ''}
+        </Text>
       </View>
 
       <View style={styles.menuGrid}>
@@ -214,7 +167,8 @@ const DoctorDashboard = ({ navigation }) => {
 
       {/* Doctor Info */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Welcome, Dr. {doctorInfo?.name}</Text>
+        <Text style={styles.sectionTitle}>Welcome, Dr. {user?.firstName || user?.username}</Text>
+        {error && <Text style={styles.errorText}>Error: {error}</Text>}
       </View>
 
       {/* Quick Actions */}
@@ -243,7 +197,7 @@ const DoctorDashboard = ({ navigation }) => {
               <View style={styles.appointmentHeader}>
                 <Text style={styles.patientName}>{appointment.patient_name || 'Unknown Patient'}</Text>
                 <Text style={styles.appointmentTime}>
-                  {new Date(appointment.appointment_date).toLocaleTimeString()}
+                  {appointment.appointment_time || 'No time set'}
                 </Text>
               </View>
               <Text style={styles.appointmentStatus}>Status: {appointment.status}</Text>
@@ -427,6 +381,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginLeft: 8,
     fontWeight: 'bold',
+  },
+  errorText: {
+    color: '#ff4444',
+    fontSize: 14,
+    marginTop: 8,
+    textAlign: 'center',
   },
 });
 

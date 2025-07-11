@@ -8,7 +8,8 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
-  FlatList
+  FlatList,
+  Modal
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
@@ -23,7 +24,7 @@ const CreatePrescription = ({ route, navigation }) => {
   const [selectedMedicines, setSelectedMedicines] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Vitals state
+  // Vitals state with proper types
   const [vitals, setVitals] = useState({
     weight: '',
     height: '',
@@ -45,19 +46,31 @@ const CreatePrescription = ({ route, navigation }) => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [previousVitals, setPreviousVitals] = useState(null);
   const [showPreviousVitals, setShowPreviousVitals] = useState(false);
+  const patient_id = patientId; 
+  const [showLabModal, setShowLabModal] = useState(false);
+  const [labs, setLabs] = useState([]);
+  const [selectedLab, setSelectedLab] = useState(null);
+  const [labTests, setLabTests] = useState([]);
+  const [showCustomTest, setShowCustomTest] = useState(false);
+  const [customTest, setCustomTest] = useState({
+    test_name: '',
+    collection_type: 'inhome',
+    description: ''
+  });
 
   useEffect(() => {
     fetchPreviousVitals();
+    fetchLabs();
   }, []);
 
   // Fetch drug suggestions
   const fetchDrugSuggestions = async (query) => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(`${API_URL}/api/drugs/suggestions/?query=${encodeURIComponent(query)}`, {
+      const response = await fetch(`${API_URL}/users/api/drugs/suggestions/?query=${encodeURIComponent(query)}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json'
+          'Accept': 'application/json' 
         }
       });
       
@@ -80,6 +93,25 @@ const CreatePrescription = ({ route, navigation }) => {
     setSelectedMedicines([...selectedMedicines, {
       name: drug.product_name,
       salt_composition: drug.salt_composition,
+      dosage: '',
+      duration: '',
+      duration_unit: 'days',
+      instructions: ''
+    }]);
+    setShowSuggestions(false);
+    setSearchQuery('');
+  };
+
+  // Add custom medicine manually
+  const addCustomMedicine = () => {
+    if (!searchQuery.trim()) {
+      Alert.alert('Error', 'Please enter a medicine name');
+      return;
+    }
+    
+    setSelectedMedicines([...selectedMedicines, {
+      name: searchQuery.trim(),
+      salt_composition: '',
       dosage: '',
       duration: '',
       duration_unit: 'days',
@@ -112,41 +144,140 @@ const CreatePrescription = ({ route, navigation }) => {
     }
   };
 
-  const handleSubmit = async () => {
-    if (selectedMedicines.length === 0) {
-      Alert.alert('Error', 'Please add at least one medicine');
-      return;
-    }
-
-    // Format vitals data
-    const formattedVitals = {
-      weight: vitals.weight ? vitals.weight.toString() : '',
-      height: vitals.height ? vitals.height.toString() : '',
-      blood_pressure: vitals.blood_pressure || '',
-      temperature: vitals.temperature ? vitals.temperature.toString() : '',
-      heart_rate: vitals.heart_rate ? vitals.heart_rate.toString() : '',
-      oxygen_saturation: vitals.oxygen_saturation ? vitals.oxygen_saturation.toString() : '',
-    };
-
-    const formData = {
-      patient_id: patientId,
-      appointment_id: appointmentId,
-      ...formattedVitals,
-      ...prescriptionData,
-      follow_up_date: prescriptionData.follow_up_date || null,
-      medicines: selectedMedicines.map(med => ({
-        name: med.name,
-        dosage: med.dosage || '1-0-0',
-        duration: med.duration ? med.duration.toString() : '1',
-        duration_unit: med.duration_unit || 'days',
-        instructions: med.instructions || ''
-      }))
-    };
-
-    setLoading(true);
+  const fetchLabs = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(`${API_URL}/api/doctor/prescriptions/create/`, {
+      if (!token) {
+        Alert.alert('Error', 'Please login again');
+        navigation.navigate('Login');
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/labs/api/labs/api_available_labs/`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch labs');
+      }
+      
+      if (data.status === 'success' && Array.isArray(data.labs)) {
+        setLabs(data.labs);
+      } else {
+        throw new Error('Invalid response format from server');
+      }
+    } catch (error) {
+      console.error('Error fetching labs:', error);
+      Alert.alert('Error', error.message || 'Failed to load labs');
+    }
+  };
+
+  const handleAddLabTest = () => {
+    if (showCustomTest) {
+      if (!customTest.test_name.trim()) {
+        Alert.alert('Error', 'Please enter test name');
+        return;
+      }
+
+      setLabTests(prev => [...prev, {
+        lab_id: null,
+        lab_name: 'Custom Test',
+        test_name: customTest.test_name,
+        collection_type: customTest.collection_type,
+        description: customTest.description,
+        is_internal: false,
+        is_custom: true
+      }]);
+      setShowLabModal(false);
+      setShowCustomTest(false);
+      setCustomTest({
+        test_name: '',
+        collection_type: 'blood',
+        description: ''
+      });
+    } else {
+      if (!selectedLab) {
+        Alert.alert('Error', 'Please select a lab first');
+        return;
+      }
+
+      setLabTests(prev => [...prev, {
+        lab_id: selectedLab.id,
+        lab_name: selectedLab.name,
+        test_name: '',
+        collection_type: 'blood',
+        description: '',
+        is_internal: selectedLab.type === 'INHOUSE',
+        is_custom: false
+      }]);
+      setShowLabModal(false);
+      setSelectedLab(null);
+    }
+  };
+
+  const handleRemoveLabTest = (index) => {
+    setLabTests(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = async () => {
+    try {
+      setLoading(true);
+
+      // Validate required fields
+      if (!prescriptionData.chief_complaints.trim()) {
+        Alert.alert('Error', 'Chief complaints are required');
+        return;
+      }
+
+      // Format the data according to the API model
+      const formData = {
+        patient_id: patientId,
+        appointment_id: appointmentId,
+        
+        // Vitals data
+        weight: vitals.weight ? vitals.weight.toString() : '',
+        height: vitals.height ? vitals.height.toString() : '',
+        blood_pressure: vitals.blood_pressure || '',
+        temperature: vitals.temperature ? vitals.temperature.toString() : '',
+        heart_rate: vitals.heart_rate ? vitals.heart_rate.toString() : '',
+        oxygen_saturation: vitals.oxygen_saturation ? vitals.oxygen_saturation.toString() : '',
+        
+        // Prescription details
+        chief_complaints: prescriptionData.chief_complaints,
+        clinical_findings: prescriptionData.clinical_findings,
+        diagnosis: prescriptionData.diagnosis,
+        advice: prescriptionData.advice,
+        follow_up_date: prescriptionData.follow_up_date || null,
+        
+        // Medicines
+        medicines: selectedMedicines.map(med => ({
+          name: med.name,
+          dosage: med.dosage || '1-0-0',
+          duration: med.duration ? med.duration.toString() : '1',
+          duration_unit: med.duration_unit || 'days',
+          instructions: med.instructions || ''
+        })),
+
+        // Lab Tests
+        lab_tests: labTests.map(test => ({
+          lab_id: test.lab_id,
+          test_name: test.test_name,
+          collection_type: test.collection_type,
+          description: test.description,
+          is_internal: test.is_internal,
+          is_custom: test.is_custom
+        }))
+      };
+
+      const token = await AsyncStorage.getItem('userToken');
+      const response = await fetch(`${API_URL}/users/api/doctor/prescriptions/create/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -155,13 +286,50 @@ const CreatePrescription = ({ route, navigation }) => {
         body: JSON.stringify(formData),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create prescription');
+        throw new Error(data.error || 'Failed to create prescription');
       }
 
-      Alert.alert('Success', 'Prescription created successfully');
-      navigation.goBack();
+      // Send lab test notifications if there are any
+      if (labTests.length > 0) {
+        const notificationResponse = await fetch(`${API_URL}/users/api/notifications/lab-tests/`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            patient_id: patientId,
+            prescription_id: data.id,
+            lab_tests: labTests.map(test => ({
+              lab_id: test.lab_id,
+              test_name: test.test_name,
+              collection_type: test.collection_type,
+              description: test.description,
+              is_internal: test.is_internal,
+              is_custom: test.is_custom
+            }))
+          }),
+        });
+
+        if (!notificationResponse.ok) {
+          console.error('Failed to send lab test notifications');
+        }
+      }
+
+      Alert.alert(
+        'Success',
+        'Prescription created successfully',
+        [
+          {
+            text: 'OK',
+            onPress: () => navigation.goBack()
+          }
+        ]
+      );
+
     } catch (error) {
       console.error('Error creating prescription:', error);
       Alert.alert('Error', error.message || 'Failed to create prescription');
@@ -173,7 +341,7 @@ const CreatePrescription = ({ route, navigation }) => {
   const fetchPreviousVitals = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(`${API_URL}/api/doctor/patients/${patientId}/latest-vitals/`, {
+      const response = await fetch(`${API_URL}/users/api/doctor/patients/${patientId}/latest-vitals/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -265,6 +433,7 @@ const CreatePrescription = ({ route, navigation }) => {
               value={vitals.weight}
               onChangeText={(text) => setVitals({...vitals, weight: text})}
               keyboardType="numeric"
+              placeholder="Enter weight"
             />
           </View>
           <View style={styles.vitalInput}>
@@ -320,30 +489,69 @@ const CreatePrescription = ({ route, navigation }) => {
         <Text style={styles.sectionTitle}>Clinical Details</Text>
         <TextInput
           style={[styles.input, styles.textArea]}
-          placeholder="Chief Complaints"
+          placeholder="Chief Complaints *"
           value={prescriptionData.chief_complaints}
           onChangeText={(text) => setPrescriptionData({...prescriptionData, chief_complaints: text})}
           multiline
+          required
         />
+        <TextInput
+          style={[styles.input, styles.textArea]}
+          placeholder="Clinical Findings *"
+          value={prescriptionData.clinical_findings}
+          onChangeText={(text) => setPrescriptionData({...prescriptionData, clinical_findings: text})}
+          multiline
+        />
+        <TextInput
+          style={[styles.input, styles.textArea]}
+          placeholder="Diagnosis *"
+          value={prescriptionData.diagnosis}
+          onChangeText={(text) => setPrescriptionData({...prescriptionData, diagnosis: text})}
+          multiline
+        />
+        <TextInput
+          style={[styles.input, styles.textArea]}
+          placeholder="Advice *"
+          value={prescriptionData.advice} 
+          onChangeText={(text) => setPrescriptionData({...prescriptionData, advice: text})}
+          multiline
+        />
+        
+
+
         {/* Add other clinical detail inputs */}
       </View>
 
       {/* Medicines Section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Medicines</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Search medicines..."
-          value={searchQuery}
-          onChangeText={(text) => {
-            setSearchQuery(text);
-            if (text.length > 2) {
-              fetchDrugSuggestions(text);
-            } else {
-              setShowSuggestions(false);
-            }
-          }}
-        />
+        <Text style={styles.instructionText}>
+          Search for medicines or type a custom medicine name to add manually
+        </Text>
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={[styles.input, styles.searchInput]}
+            placeholder="Search medicines..."
+            value={searchQuery}
+            onChangeText={(text) => {
+              setSearchQuery(text);
+              if (text.length > 2) {
+                fetchDrugSuggestions(text);
+              } else {
+                setShowSuggestions(false);
+              }
+            }}
+          />
+          {searchQuery.trim() && !showSuggestions && (
+            <TouchableOpacity
+              style={styles.addCustomButton}
+              onPress={addCustomMedicine}
+            >
+              <Icon name="add" size={20} color="#fff" />
+              <Text style={styles.addCustomButtonText}>Add Custom</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
         {/* Drug Suggestions */}
         {showSuggestions && (
@@ -358,13 +566,44 @@ const CreatePrescription = ({ route, navigation }) => {
                 <Text style={styles.saltComposition}>{item.salt_composition}</Text>
               </TouchableOpacity>
             ))}
+            {searchQuery.trim() && (
+              <TouchableOpacity
+                style={styles.customSuggestionItem}
+                onPress={addCustomMedicine}
+              >
+                <Icon name="add-circle" size={20} color="#3f51b5" />
+                <Text style={styles.customSuggestionText}>
+                  Add "{searchQuery.trim()}" as custom medicine
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
+        )}
+
+        {/* Manual Add Button when no suggestions */}
+        {searchQuery.trim() && !showSuggestions && drugSuggestions.length === 0 && (
+          <TouchableOpacity
+            style={styles.manualAddButton}
+            onPress={addCustomMedicine}
+          >
+            <Icon name="add-circle" size={20} color="#fff" />
+            <Text style={styles.manualAddButtonText}>
+              Add "{searchQuery.trim()}" as custom medicine
+            </Text>
+          </TouchableOpacity>
         )}
 
         {/* Selected Medicines List */}
         {selectedMedicines.map((medicine, index) => (
           <View key={index} style={styles.medicineItem}>
-            <Text style={styles.medicineName}>{medicine.name}</Text>
+            <View style={styles.medicineHeader}>
+              <Text style={styles.medicineName}>{medicine.name}</Text>
+              {!medicine.salt_composition && (
+                <View style={styles.customBadge}>
+                  <Text style={styles.customBadgeText}>Custom</Text>
+                </View>
+              )}
+            </View>
             <TextInput
               style={styles.input}
               placeholder="Dosage"
@@ -378,6 +617,12 @@ const CreatePrescription = ({ route, navigation }) => {
                 value={medicine.duration}
                 onChangeText={(text) => updateMedicine(index, 'duration', text)}
                 keyboardType="numeric"
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Duration Unit"
+                value={medicine.duration_unit}
+                onChangeText={(text) => updateMedicine(index, 'duration_unit', text)}
               />
               <TextInput
                 style={styles.input}
@@ -424,6 +669,64 @@ const CreatePrescription = ({ route, navigation }) => {
         )}
       </View>
 
+      {/* Lab Tests Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Lab Tests</Text>
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={() => setShowLabModal(true)}
+        >
+          <Icon name="add-circle" size={20} color="#fff" />
+          <Text style={styles.addButtonText}>Add Lab Test</Text>
+        </TouchableOpacity>
+
+        {labTests.map((test, index) => (
+          <View key={index} style={styles.labTestItem}>
+            <Text style={styles.labName}>{test.lab_name}</Text>
+            <Text style={styles.labType}>
+              {test.is_internal ? 'Internal Lab' : 'External Lab'}
+            </Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Test Name"
+              value={test.test_name}
+              onChangeText={(text) => {
+                const newTests = [...labTests];
+                newTests[index].test_name = text;
+                setLabTests(newTests);
+              }}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Collection Type"
+              value={test.collection_type}
+              onChangeText={(text) => {
+                const newTests = [...labTests];
+                newTests[index].collection_type = text;
+                setLabTests(newTests);
+              }}
+            />
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              placeholder="Description"
+              value={test.description}
+              onChangeText={(text) => {
+                const newTests = [...labTests];
+                newTests[index].description = text;
+                setLabTests(newTests);
+              }}
+              multiline
+            />
+            <TouchableOpacity
+              style={styles.removeButton}
+              onPress={() => handleRemoveLabTest(index)}
+            >
+              <Icon name="remove-circle" size={24} color="red" />
+            </TouchableOpacity>
+          </View>
+        ))}
+      </View>
+
       {/* Submit Button */}
       <TouchableOpacity
         style={[styles.submitButton, loading && styles.buttonDisabled]}
@@ -436,6 +739,121 @@ const CreatePrescription = ({ route, navigation }) => {
           <Text style={styles.buttonText}>Create Prescription</Text>
         )}
       </TouchableOpacity>
+
+      {/* Lab Selection Modal */}
+      <Modal
+        visible={showLabModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => {
+          setShowLabModal(false);
+          setShowCustomTest(false);
+          setSelectedLab(null);
+        }}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {showCustomTest ? 'Add Custom Test' : 'Select Lab'}
+              </Text>
+              <TouchableOpacity onPress={() => {
+                setShowLabModal(false);
+                setShowCustomTest(false);
+                setSelectedLab(null);
+              }}>
+                <Icon name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            {showCustomTest ? (
+              <View style={styles.customTestForm}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Test Name *"
+                  value={customTest.test_name}
+                  onChangeText={(text) => setCustomTest({...customTest, test_name: text})}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Collection Type"
+                  value={customTest.collection_type}
+                  onChangeText={(text) => setCustomTest({...customTest, collection_type: text})}
+                />
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  placeholder="Description"
+                  value={customTest.description}
+                  onChangeText={(text) => setCustomTest({...customTest, description: text})}
+                  multiline
+                />
+              </View>
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={styles.customTestButton}
+                  onPress={() => setShowCustomTest(true)}
+                >
+                  <Icon name="add-circle" size={20} color="#fff" />
+                  <Text style={styles.customTestButtonText}>Add Custom Test</Text>
+                </TouchableOpacity>
+
+                <FlatList
+                  data={labs}
+                  keyExtractor={(item) => item.id.toString()}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={[
+                        styles.labItem,
+                        selectedLab?.id === item.id && styles.selectedLabItem
+                      ]}
+                      onPress={() => setSelectedLab(item)}
+                    >
+                      <View style={styles.labInfo}>
+                        <Text style={styles.labItemName}>{item.name}</Text>
+                        <Text style={styles.labItemType}>
+                          {item.type === 'INHOUSE' ? 'Internal Lab' : 'External Lab'}
+                        </Text>
+                        {item.address && (
+                          <Text style={styles.labAddress}>{item.address}</Text>
+                        )}
+                      </View>
+                      <View style={styles.labStatus}>
+                        <Icon
+                          name={item.type === 'INHOUSE' ? 'business' : 'local-hospital'}
+                          size={24}
+                          color={selectedLab?.id === item.id ? '#3f51b5' : '#666'}
+                        />
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                />
+              </>
+            )}
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  setShowLabModal(false);
+                  setShowCustomTest(false);
+                  setSelectedLab(null);
+                }}
+              >
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.confirmButton]}
+                onPress={handleAddLabTest}
+              >
+                <Text style={styles.modalButtonText}>
+                  {showCustomTest ? 'Add Test' : 'Select Lab'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -463,6 +881,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     color: '#333',
   },
+  instructionText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 12,
+    fontStyle: 'italic',
+  },
   vitalsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -478,6 +902,30 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     marginBottom: 12,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  searchInput: {
+    flex: 1,
+    marginBottom: 0,
+    marginRight: 8,
+  },
+  addCustomButton: {
+    backgroundColor: '#3f51b5',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  addCustomButtonText: {
+    color: '#fff',
+    marginLeft: 4,
+    fontSize: 14,
+    fontWeight: '500',
   },
   textArea: {
     height: 100,
@@ -503,6 +951,35 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
   },
+  customSuggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#ddd',
+    backgroundColor: '#f8f9fa',
+  },
+  customSuggestionText: {
+    fontSize: 14,
+    color: '#3f51b5',
+    marginLeft: 8,
+    fontWeight: '500',
+  },
+  manualAddButton: {
+    backgroundColor: '#3f51b5',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  manualAddButtonText: {
+    color: '#fff',
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: '500',
+  },
   medicineItem: {
     backgroundColor: '#f9f9f9',
     padding: 12,
@@ -513,6 +990,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginBottom: 8,
+  },
+  medicineHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  customBadge: {
+    backgroundColor: '#ff9800',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  customBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '500',
   },
   durationContainer: {
     flexDirection: 'row',
@@ -594,6 +1088,134 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '500',
+  },
+  labTestItem: {
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+  },
+  labName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  labType: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8,
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#3f51b5',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  addButtonText: {
+    color: '#fff',
+    marginLeft: 8,
+    fontWeight: 'bold',
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    width: '90%',
+    maxHeight: '80%',
+    padding: 16,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  labItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  selectedLabItem: {
+    backgroundColor: '#e3f2fd',
+  },
+  labInfo: {
+    flex: 1,
+  },
+  labItemName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  labItemType: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 4,
+  },
+  labAddress: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+  },
+  labStatus: {
+    marginLeft: 12,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  modalButton: {
+    padding: 12,
+    borderRadius: 8,
+    marginLeft: 8,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#f44336',
+  },
+  confirmButton: {
+    backgroundColor: '#4caf50',
+  },
+  modalButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  customTestButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#3f51b5',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  customTestButtonText: {
+    color: '#fff',
+    marginLeft: 8,
+    fontWeight: 'bold',
+  },
+  customTestForm: {
+    padding: 16,
   },
 });
 

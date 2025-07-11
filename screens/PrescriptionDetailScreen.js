@@ -8,13 +8,14 @@ import {
   Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_URL } from '../../config';
+import { API_URL } from '../config';
 
 const PrescriptionDetailScreen = ({ route }) => {
   const { prescriptionId } = route.params;
   const [prescription, setPrescription] = useState(null);
   const [clinicDetails, setClinicDetails] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchPrescriptionDetails();
@@ -23,35 +24,81 @@ const PrescriptionDetailScreen = ({ route }) => {
   const fetchPrescriptionDetails = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(`${API_URL}/api/patient/prescriptions_detail/${prescriptionId}/`, {
+      if (!token) {
+        setError('No authentication token found');
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/api/doctor/prescriptions/${prescriptionId}/api/`, {
+        method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
       });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          setError('Authentication failed. Please login again.');
+          return;
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const data = await response.json();
       setPrescription(data);
       
       // Fetch clinic details using clinic_id from prescription
       if (data.clinic_id) {
-        const clinicResponse = await fetch(`${API_URL}/api/clinics/${data.clinic_id}/`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        const clinicData = await clinicResponse.json();
-        setClinicDetails(clinicData);
+        try {
+          const clinicResponse = await fetch(`${API_URL}/api/doctor/clinics/${data.clinic_id}/`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (!clinicResponse.ok) {
+            console.warn('Failed to fetch clinic details:', clinicResponse.status);
+            return; // Don't throw error for clinic details, just skip it
+          }
+
+          const clinicData = await clinicResponse.json();
+          setClinicDetails(clinicData);
+        } catch (clinicError) {
+          console.warn('Error fetching clinic details:', clinicError);
+          // Don't set error state for clinic details failure
+        }
       }
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error fetching prescription details:', error);
+      setError(error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading || !prescription) {
+  if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#0066cc" />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>{error}</Text>
+      </View>
+    );
+  }
+
+  if (!prescription) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>No prescription data found</Text>
       </View>
     );
   }
@@ -131,18 +178,15 @@ const PrescriptionDetailScreen = ({ route }) => {
           <Text style={styles.columnHeader}>Dosage</Text>
           <Text style={styles.columnHeader}>Duration</Text>
         </View>
-        {prescription.items.map((item, index) => (
+        {prescription.medicines?.map((item, index) => (
           <View key={index} style={styles.medicationRow}>
             <View style={styles.medicineNameColumn}>
-              <Text style={styles.medicineName}>{index + 1}) {item.medicine}</Text>
-              {item.generic_name && (
-                <Text style={styles.genericName}>{item.generic_name}</Text>
-              )}
+              <Text style={styles.medicineName}>{index + 1}) {item.name}</Text>
             </View>
             <Text style={styles.dosageColumn}>{item.dosage}</Text>
             <Text style={styles.durationColumn}>
-              {item.duration} {item.duration_unit}
-              {'\n'}(Tot:{item.duration} {item.duration_unit})
+              {item.duration}
+              {'\n'}({item.instructions})
             </Text>
           </View>
         ))}
@@ -275,10 +319,6 @@ const styles = StyleSheet.create({
   medicineName: {
     fontWeight: 'bold',
   },
-  genericName: {
-    fontSize: 12,
-    color: '#666',
-  },
   adviceSection: {
     marginVertical: 10,
   },
@@ -293,6 +333,21 @@ const styles = StyleSheet.create({
   },
   contentText: {
     fontSize: 14,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorText: {
+    color: 'red',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 

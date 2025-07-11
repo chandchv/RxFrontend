@@ -3,192 +3,251 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
-  TouchableOpacity,
   TextInput,
+  TouchableOpacity,
+  ScrollView,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { Picker } from '@react-native-picker/picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
 
-const CreateAppointment = ({ route, navigation }) => {
-  const [loading, setLoading] = useState(false);
+const CreateAppointment = ({ navigation, route }) => {
+  const [loading, setLoading] = useState(true);
   const [patients, setPatients] = useState([]);
-  const [selectedPatient, setSelectedPatient] = useState(route.params?.patientId || null);
+  const [selectedPatient, setSelectedPatient] = useState('');
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedTime, setSelectedTime] = useState('');
+  const [availableSlots, setAvailableSlots] = useState([]);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
-  const [appointmentData, setAppointmentData] = useState({
-    date: new Date(),
-    reason: '',
-    notes: '',
-  });
+  const [notes, setNotes] = useState('');
+  const [doctorInfo, setDoctorInfo] = useState(null);
 
   useEffect(() => {
     fetchPatients();
+    fetchDoctorInfo();
   }, []);
+
+  useEffect(() => {
+    if (doctorInfo) {
+      fetchAvailableSlots();
+    }
+  }, [selectedDate, doctorInfo]);
 
   const fetchPatients = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(`${API_URL}/api/doctor/patients/`, {
+      const response = await fetch(`${API_URL}/users/api/doctor/patients/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch patients');
-      }
-
       const data = await response.json();
       setPatients(data);
     } catch (error) {
-      console.error('Error fetching patients:', error);
-      Alert.alert('Error', 'Failed to load patients');
+      Alert.alert('Error', 'Failed to fetch patients');
     }
   };
 
+  const fetchDoctorInfo = async () => {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      console.log('Fetching doctor info with token:', token);
+      
+      const response = await fetch(`${API_URL}/users/api/doctor/me/`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      console.log('Response status:', response.status);
+      const data = await response.json();
+      console.log('Doctor info response:', data);
+      
+      setDoctorInfo(data);
+    } catch (error) {
+      console.error('Error fetching doctor info:', error);
+      Alert.alert('Error', 'Failed to fetch doctor information');
+    }
+  };
+
+  const handleDateChange = async (event, selectedDate) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      setSelectedDate(selectedDate);
+      await fetchAvailableSlots();
+    }
+  };
+  
+  const fetchAvailableSlots = async () => {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      const formattedDate = selectedDate.toISOString().split('T')[0];
+      
+      console.log('Fetching slots for date:', formattedDate);
+      
+      const response = await fetch(
+        `${API_URL}/users/api/doctor/available-slots/${doctorInfo.id}/${formattedDate}/`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+      console.log('Slots response:', data);
+
+      if (response.ok) {
+        setAvailableSlots(data.slots || []);
+      } else {
+        throw new Error(data.error || 'Failed to fetch slots');
+      }
+    } catch (error) {
+      console.error('Error fetching slots:', error);
+      Alert.alert('Error', 'Failed to fetch available slots');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  
+
   const handleSubmit = async () => {
-    if (!selectedPatient) {
-      Alert.alert('Error', 'Please select a patient');
+    if (!selectedPatient || !selectedTime) {
+      Alert.alert('Error', 'Please select both patient and time slot');
       return;
     }
 
     setLoading(true);
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(`${API_URL}/api/doctor/appointments/create/`, {
+      const doctorData = await AsyncStorage.getItem('userData');
+      const doctor = JSON.parse(doctorData);
+
+      const response = await fetch(`${API_URL}/users/api/doctor/appointments/create/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          patient_id: selectedPatient,
-          appointment_date: appointmentData.date.toISOString(),
-          reason: appointmentData.reason,
-          notes: appointmentData.notes,
-        }),
+          patient: selectedPatient,
+          appointment_date: selectedDate.toISOString().split('T')[0],
+          appointment_time: selectedTime,
+          reason: notes || ''
+        })
       });
 
       const data = await response.json();
-
+      
       if (!response.ok) {
-        throw new Error(data.message || 'Failed to create appointment');
+        throw new Error(data.error || 'Failed to create appointment');
       }
 
       Alert.alert('Success', 'Appointment created successfully', [
-        { text: 'OK', onPress: () => navigation.goBack() }
+        {
+          text: 'OK',
+          onPress: () => navigation.navigate('DoctorDashboard')
+        }
       ]);
+
     } catch (error) {
       console.error('Error creating appointment:', error);
-      Alert.alert('Error', error.message || 'Failed to create appointment');
+      Alert.alert('Error', error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const onDateChange = (event, selectedDate) => {
-    setShowDatePicker(false);
-    if (selectedDate) {
-      setAppointmentData({
-        ...appointmentData,
-        date: selectedDate,
-      });
-    }
-  };
-
-  const onTimeChange = (event, selectedTime) => {
-    setShowTimePicker(false);
-    if (selectedTime) {
-      const newDateTime = new Date(appointmentData.date);
-      newDateTime.setHours(selectedTime.getHours());
-      newDateTime.setMinutes(selectedTime.getMinutes());
-      setAppointmentData({
-        ...appointmentData,
-        date: newDateTime,
-      });
-    }
-  };
-
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.form}>
-        <Text style={styles.label}>Patient</Text>
-        <View style={styles.pickerContainer}>
-          {/* Add your patient picker component here */}
-        </View>
+      <Text style={styles.title}>Create New Appointment</Text>
+      
+      <View style={styles.formGroup}>
+        <Text style={styles.label}>Select Patient</Text>
+        <Picker
+          selectedValue={selectedPatient}
+          onValueChange={(itemValue) => setSelectedPatient(itemValue)}
+          style={styles.picker}
+        >
+          <Picker.Item label="Select a patient" value="" />
+          {patients.map((patient) => (
+            <Picker.Item
+              key={patient.id}
+              label={`${patient.first_name} ${patient.last_name}`}
+              value={patient.id}
+            />
+          ))}
+        </Picker>
+      </View>
 
-        <Text style={styles.label}>Date</Text>
+      <View style={styles.formGroup}>
+        <Text style={styles.label}>Select Date</Text>
         <TouchableOpacity
           style={styles.dateButton}
           onPress={() => setShowDatePicker(true)}
         >
-          <Text style={styles.dateButtonText}>
-            {appointmentData.date.toLocaleDateString()}
-          </Text>
-        </TouchableOpacity>
-
-        <Text style={styles.label}>Time</Text>
-        <TouchableOpacity
-          style={styles.dateButton}
-          onPress={() => setShowTimePicker(true)}
-        >
-          <Text style={styles.dateButtonText}>
-            {appointmentData.date.toLocaleTimeString()}
-          </Text>
-        </TouchableOpacity>
-
-        <Text style={styles.label}>Reason</Text>
-        <TextInput
-          style={styles.input}
-          value={appointmentData.reason}
-          onChangeText={(text) => setAppointmentData({ ...appointmentData, reason: text })}
-          placeholder="Enter reason for appointment"
-        />
-
-        <Text style={styles.label}>Notes</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          value={appointmentData.notes}
-          onChangeText={(text) => setAppointmentData({ ...appointmentData, notes: text })}
-          placeholder="Enter additional notes"
-          multiline
-          numberOfLines={4}
-        />
-
-        <TouchableOpacity
-          style={[styles.submitButton, loading && styles.disabledButton]}
-          onPress={handleSubmit}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.submitButtonText}>Create Appointment</Text>
-          )}
+          <Text>{selectedDate.toLocaleDateString()}</Text>
         </TouchableOpacity>
       </View>
 
       {showDatePicker && (
         <DateTimePicker
-          value={appointmentData.date}
+          value={selectedDate}
           mode="date"
-          display="default"
-          onChange={onDateChange}
+          onChange={handleDateChange}
+          minimumDate={new Date()}
         />
       )}
 
-      {showTimePicker && (
-        <DateTimePicker
-          value={appointmentData.date}
-          mode="time"
-          display="default"
-          onChange={onTimeChange}
-        />
+      {availableSlots.length > 0 && (
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Select Time Slot</Text>
+          <Picker
+            selectedValue={selectedTime}
+            onValueChange={(itemValue) => setSelectedTime(itemValue)}
+            style={styles.picker}
+          >
+            <Picker.Item label="Select a time slot" value="" />
+            {availableSlots.map((slot) => (
+              <Picker.Item
+                time={slot.time}
+                key={slot.time}
+                label={slot.time}
+                value={slot.time}
+              />
+            ))}
+          </Picker>
+        </View>
       )}
+
+      <View style={styles.formGroup}>
+        <Text style={styles.label}>Notes</Text>
+        <TextInput
+          style={styles.input}
+          multiline
+          numberOfLines={4}
+          value={notes}
+          onChangeText={setNotes}
+          placeholder="Add any notes here..."
+        />
+      </View>
+
+      <TouchableOpacity
+        style={[styles.submitButton, loading && styles.disabledButton]}
+        onPress={handleSubmit}
+        disabled={loading}
+      >
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.submitButtonText}>Create Appointment</Text>
+        )}
+      </TouchableOpacity>
     </ScrollView>
   );
 };
@@ -196,57 +255,53 @@ const CreateAppointment = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  form: {
     padding: 16,
+    backgroundColor: '#fff',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 24,
+  },
+  formGroup: {
+    marginBottom: 16,
   },
   label: {
     fontSize: 16,
-    color: '#333',
     marginBottom: 8,
-    fontWeight: '500',
+    color: '#333',
+  },
+  picker: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
   },
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: '#f5f5f5',
     borderRadius: 8,
     padding: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    fontSize: 16,
-  },
-  textArea: {
-    height: 100,
+    minHeight: 100,
     textAlignVertical: 'top',
   },
   dateButton: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
     padding: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  dateButtonText: {
-    fontSize: 16,
-    color: '#333',
+    borderRadius: 8,
   },
   submitButton: {
     backgroundColor: '#0066cc',
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
-    marginTop: 16,
-  },
-  disabledButton: {
-    opacity: 0.7,
+    marginTop: 24,
   },
   submitButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
   },
+  disabledButton: {
+    opacity: 0.7,
+  },
 });
 
-export default CreateAppointment;
+export default CreateAppointment; 

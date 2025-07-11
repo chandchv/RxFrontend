@@ -12,6 +12,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
 import { Picker } from '@react-native-picker/picker';
+import CustomHeader from '../../components/CustomHeader';
 
 const AddPatientScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
@@ -83,163 +84,178 @@ const AddPatientScreen = ({ navigation }) => {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.form}>
-        <Text style={styles.label}>First Name *</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.first_name}
-          onChangeText={(text) => setFormData({ ...formData, first_name: text })}
-          placeholder="Enter first name"
-        />
+    <View style={styles.container}>
+      <CustomHeader 
+        title="Add New Patient"
+        subtitle="Enter patient information"
+        navigation={navigation}
+        currentScreen="Patients"
+      />
+      
+      <ScrollView style={styles.content}>
+        <View style={styles.form}>
+          <Text style={styles.label}>First Name *</Text>
+          <TextInput
+            style={styles.input}
+            value={formData.first_name}
+            onChangeText={(text) => setFormData({ ...formData, first_name: text })}
+            placeholder="Enter first name"
+          />
 
-        <Text style={styles.label}>Last Name *</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.last_name}
-          onChangeText={(text) => setFormData({ ...formData, last_name: text })}
-          placeholder="Enter last name"
-        />
+          <Text style={styles.label}>Last Name *</Text>
+          <TextInput
+            style={styles.input}
+            value={formData.last_name}
+            onChangeText={(text) => setFormData({ ...formData, last_name: text })}
+            placeholder="Enter last name"
+          />
 
-        <Text style={styles.label}>Email</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.email}
-          onChangeText={(text) => setFormData({ ...formData, email: text })}
-          placeholder="Enter email"
-          keyboardType="email-address"
-        />
+          <Text style={styles.label}>Email</Text>
+          <TextInput
+            style={styles.input}
+            value={formData.email}
+            onChangeText={(text) => setFormData({ ...formData, email: text })}
+            placeholder="Enter email"
+            keyboardType="email-address"
+          />
 
-        <Text style={styles.label}>Phone *</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.phone_number}
-          onChangeText={(text) => setFormData({ ...formData, phone_number: text })}
-          placeholder="Enter phone number"
-          keyboardType="phone-pad"
-        />
+          <Text style={styles.label}>Phone *</Text>
+          <TextInput
+            style={styles.input}
+            value={formData.phone_number}
+            onChangeText={(text) => setFormData({ ...formData, phone_number: text })}
+            placeholder="Enter phone number"
+            keyboardType="phone-pad"
+          />
 
-        <Text style={styles.label}>Date of Birth</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.date_of_birth}
-          onChangeText={(text) => setFormData({ ...formData, date_of_birth: text })}
-          placeholder="YYYY-MM-DD"
-          keyboardType="numeric"
-        />
+          <Text style={styles.label}>Date of Birth</Text>
+          <TextInput
+            style={styles.input}
+            value={formData.date_of_birth}
+            onChangeText={(text) => setFormData({ ...formData, date_of_birth: text })}
+            placeholder="YYYY-MM-DD"
+            keyboardType="numeric"
+          />
 
-        <Text style={styles.label}>Gender</Text>
-        <View style={styles.pickerContainer}>
-          <Picker
-            selectedValue={formData.gender}
-            onValueChange={(value) => setFormData({ ...formData, gender: value })}
-            style={styles.picker}
+          <Text style={styles.label}>Gender</Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={formData.gender}
+              onValueChange={(value) => setFormData({ ...formData, gender: value })}
+              style={styles.picker}
+            >
+              <Picker.Item label="Male" value="M" />
+              <Picker.Item label="Female" value="F" />
+            </Picker>
+          </View>
+
+          <Text style={styles.label}>Address</Text>
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            value={formData.address}
+            onChangeText={(text) => setFormData({ ...formData, address: text })}
+            placeholder="Enter address"
+            multiline
+            numberOfLines={3}
+          />
+
+          <Text style={styles.label}>Existing Diseases</Text>
+          <TextInput
+            style={styles.input}
+            value={formData.existing_diseases}
+            onChangeText={(text) => setFormData({ ...formData, existing_diseases: text })}
+            placeholder="Enter existing diseases"
+          />
+
+          <Text style={styles.label}>Current Medications</Text>
+          <TextInput
+            style={styles.input}
+            value={formData.current_medications}
+            onChangeText={(text) => setFormData({ ...formData, current_medications: text })}
+            placeholder="Enter current medications"
+          />
+          <Text style={styles.label}>Allergies</Text>
+          <TextInput
+            style={styles.input}
+            value={formData.allergies}
+            onChangeText={(text) => setFormData({ ...formData, allergies: text })}
+            placeholder="Enter allergies"
+          />
+
+          <TouchableOpacity
+            style={[styles.submitButton, loading && styles.disabledButton]}
+            onPress={handleSubmit}
+            disabled={loading}
           >
-            <Picker.Item label="Male" value="M" />
-            <Picker.Item label="Female" value="F" />
-          </Picker>
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.submitButtonText}>Add Patient</Text>
+            )}
+          </TouchableOpacity>
         </View>
-
-        <Text style={styles.label}>Address</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          value={formData.address}
-          onChangeText={(text) => setFormData({ ...formData, address: text })}
-          placeholder="Enter address"
-          multiline
-          numberOfLines={3}
-        />
-
-        <Text style={styles.label}>Existing Diseases</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.existing_diseases}
-          onChangeText={(text) => setFormData({ ...formData, existing_diseases: text })}
-          placeholder="Enter existing diseases"
-        />
-
-        <Text style={styles.label}>Current Medications</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.current_medications}
-          onChangeText={(text) => setFormData({ ...formData, current_medications: text })}
-          placeholder="Enter current medications"
-        />
-        <Text style={styles.label}>Allergies</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.allergies}
-          onChangeText={(text) => setFormData({ ...formData, allergies: text })}
-          placeholder="Enter allergies"
-        />
-
-        <TouchableOpacity
-          style={[styles.submitButton, loading && styles.disabledButton]}
-          onPress={handleSubmit}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.submitButtonText}>Add Patient</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f8fafc',
+  },
+  content: {
+    flex: 1,
   },
   form: {
     padding: 16,
   },
   label: {
     fontSize: 16,
-    color: '#333',
+    fontWeight: '600',
+    color: '#374151',
     marginBottom: 8,
-    fontWeight: '500',
+    marginTop: 16,
   },
   input: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     fontSize: 16,
+    color: '#1f2937',
   },
   textArea: {
-    height: 100,
+    height: 80,
     textAlignVertical: 'top',
   },
   pickerContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#ddd',
-    marginBottom: 16,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    overflow: 'hidden',
   },
   picker: {
     height: 50,
   },
   submitButton: {
-    backgroundColor: '#0066cc',
+    backgroundColor: '#3b82f6',
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: 24,
+    marginBottom: 32,
   },
   disabledButton: {
-    opacity: 0.7,
+    backgroundColor: '#9ca3af',
   },
   submitButtonText: {
-    color: '#fff',
+    color: '#ffffff',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
 });
 

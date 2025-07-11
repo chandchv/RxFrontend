@@ -15,7 +15,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 const PatientListScreen = ({ navigation }) => {
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
-
+  const [error, setError] = useState(null);
   useEffect(() => {
     fetchPatients();
   }, []);
@@ -23,7 +23,7 @@ const PatientListScreen = ({ navigation }) => {
   const fetchPatients = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(`${API_URL}/api/doctor/patients/`, {
+      const response = await fetch(`${API_URL}/users/api/doctor/patients/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -35,6 +35,7 @@ const PatientListScreen = ({ navigation }) => {
       }
 
       const data = await response.json();
+      console.log('Patients API response:', data); // Debug log
       setPatients(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching patients:', error);
@@ -83,7 +84,7 @@ const PatientListScreen = ({ navigation }) => {
     <View style={styles.container}>
       <TouchableOpacity
         style={styles.addButton}
-        onPress={() => navigation.navigate('AddPatientScreen')}
+        onPress={() => navigation.navigate('AddPatient')}
       >
         <Icon name="person-add" size={24} color="#fff" />
         <Text style={styles.addButtonText}>Add New Patient</Text>

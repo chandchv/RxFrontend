@@ -17,6 +17,7 @@ const ClinicReports = () => {
   const [loading, setLoading] = useState(true);
   const [reportData, setReportData] = useState(null);
   const [timeRange, setTimeRange] = useState('week'); // week, month, year
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchReportData();
@@ -24,18 +25,24 @@ const ClinicReports = () => {
 
   const fetchReportData = async () => {
     try {
+      setError(null);
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(`${API_URL}/api/clinic-admin/reports/?period=${timeRange}`, {
+      const response = await fetch(`${API_URL}/api/clinic/reports/?period=${timeRange}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
 
-      if (!response.ok) throw new Error('Failed to fetch reports');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch reports');
+      }
+      
       const data = await response.json();
       setReportData(data);
     } catch (error) {
-      console.error(error);
+      console.error('Error fetching reports:', error);
+      setError(error.message);
     } finally {
       setLoading(false);
     }
@@ -71,25 +78,39 @@ const ClinicReports = () => {
     );
   }
 
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity 
+          style={styles.retryButton}
+          onPress={fetchReportData}
+        >
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <ScrollView style={styles.container}>
       {renderTimeRangeSelector()}
 
       <View style={styles.statsGrid}>
         <View style={styles.statCard}>
-          <Text style={styles.statValue}>{reportData?.totalAppointments}</Text>
+          <Text style={styles.statValue}>{reportData?.totalAppointments || 0}</Text>
           <Text style={styles.statLabel}>Appointments</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statValue}>{reportData?.totalRevenue}</Text>
+          <Text style={styles.statValue}>${reportData?.totalRevenue || 0}</Text>
           <Text style={styles.statLabel}>Revenue</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statValue}>{reportData?.newPatients}</Text>
+          <Text style={styles.statValue}>{reportData?.newPatients || 0}</Text>
           <Text style={styles.statLabel}>New Patients</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statValue}>{reportData?.completionRate}%</Text>
+          <Text style={styles.statValue}>{reportData?.completionRate || 0}%</Text>
           <Text style={styles.statLabel}>Completion Rate</Text>
         </View>
       </View>
@@ -156,6 +177,28 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#ff4444',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: '#0066cc',
+    padding: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   timeRangeContainer: {
     flexDirection: 'row',

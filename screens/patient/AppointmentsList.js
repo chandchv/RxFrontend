@@ -10,6 +10,7 @@ import {
   Alert
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import { API_URL } from '../../config';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation } from '@react-navigation/native';
@@ -24,10 +25,17 @@ const AppointmentsList = () => {
     fetchAppointments();
   }, []);
 
+  // Refresh appointments when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchAppointments();
+    }, [])
+  );
+
   const fetchAppointments = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(`${API_URL}/api/patient/appointments/`, {
+      const response = await fetch(`${API_URL}/users/api/patient/appointments/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -64,7 +72,7 @@ const AppointmentsList = () => {
           onPress: async () => {
             try {
               const token = await AsyncStorage.getItem('userToken');
-              const response = await fetch(`${API_URL}/api/patient/appointments/${appointmentId}/cancel/`, {
+              const response = await fetch(`${API_URL}/users/api/patient/appointments/${appointmentId}/cancel/`, {
                 method: 'POST',
                 headers: {
                   'Authorization': `Bearer ${token}`,
@@ -98,7 +106,7 @@ const AppointmentsList = () => {
       <View style={styles.appointmentHeader}>
         <Text style={styles.doctorName}>Dr. {item.doctor_name}</Text>
         <Text style={[styles.status, { color: getStatusColor(item.status) }]}>
-          {item.status}
+          {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
         </Text>
       </View>
 
@@ -126,6 +134,8 @@ const AppointmentsList = () => {
       case 'scheduled': return '#2196F3';
       case 'completed': return '#4CAF50';
       case 'cancelled': return '#F44336';
+      case 'missed': return '#FFA000';
+      case 'no_show': return '#FFA000';
       default: return '#757575';
     }
   };

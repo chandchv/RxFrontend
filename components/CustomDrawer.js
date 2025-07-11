@@ -10,39 +10,26 @@ import {
 import {
   DrawerContentScrollView,
   DrawerItemList,
+  DrawerItem
 } from '@react-navigation/drawer';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigation } from '@react-navigation/native';
 
 const CustomDrawer = (props) => {
-  const { logout, user } = useAuth();
+  const navigation = useNavigation();
+  const { logout } = useAuth();
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Logout',
-          onPress: async () => {
-            try {
-              const result = await logout();
-              if (!result.success) {
-                Alert.alert('Error', 'Failed to logout');
-              }
-            } catch (error) {
-              console.error('Logout error:', error);
-              Alert.alert('Error', 'An error occurred during logout');
-            }
-          },
-        },
-      ],
-      { cancelable: false }
-    );
+  const handleLogout = async () => {
+    try {
+      const result = await logout(navigation);
+      if (!result.success) {
+        Alert.alert('Error', 'Failed to logout. Please try again.');
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+      Alert.alert('Error', 'An unexpected error occurred');
+    }
   };
 
   return (
@@ -54,25 +41,24 @@ const CustomDrawer = (props) => {
             style={styles.logo}
           />
           <Text style={styles.appName}>RX App</Text>
-          {user && (
+          {props.user && (
             <Text style={styles.userName}>
-              {user.first_name} {user.last_name}
+              {props.user.first_name} {props.user.last_name}
             </Text>
           )}
         </View>
         
         <View style={styles.drawerContent}>
           <DrawerItemList {...props} />
+          <DrawerItem
+            label="Logout"
+            onPress={handleLogout}
+            icon={({ color, size }) => (
+              <Icon name="logout" size={size} color={color} />
+            )}
+          />
         </View>
       </DrawerContentScrollView>
-      
-      <TouchableOpacity
-        style={styles.logoutButton}
-        onPress={handleLogout}
-      >
-        <Icon name="logout" size={24} color="#FF4444" />
-        <Text style={styles.logoutText}>Logout</Text>
-      </TouchableOpacity>
     </View>
   );
 };

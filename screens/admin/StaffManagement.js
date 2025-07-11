@@ -21,9 +21,20 @@ const StaffManagement = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
+  const [addStaffModalVisible, setAddStaffModalVisible] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [clinicId, setClinicId] = useState(null);
+  // New staff form data
+  const [newStaff, setNewStaff] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    role: 'receptionist',
+    password: '',
+    confirmPassword: ''
+  });
 
   useEffect(() => {
     fetchClinics();
@@ -174,6 +185,67 @@ const StaffManagement = ({ navigation }) => {
     }
   };
 
+  // Add new staff member
+  const handleAddStaff = async () => {
+    try {
+      // Validate form data
+      if (!newStaff.firstName || !newStaff.lastName || !newStaff.email || !newStaff.password) {
+        Alert.alert('Error', 'Please fill all required fields');
+        return;
+      }
+
+      if (newStaff.password !== newStaff.confirmPassword) {
+        Alert.alert('Error', 'Passwords do not match');
+        return;
+      }
+
+      setLoading(true);
+      const token = await AsyncStorage.getItem('userToken');
+      
+      const response = await fetch(`${API_URL}/api/admin/clinics/${clinicId}/staff/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          first_name: newStaff.firstName,
+          last_name: newStaff.lastName,
+          email: newStaff.email,
+          phone: newStaff.phone,
+          role: newStaff.role,
+          password: newStaff.password
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to add staff member');
+      }
+
+      // Reset form and close modal
+      setNewStaff({
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+        role: 'receptionist',
+        password: '',
+        confirmPassword: ''
+      });
+      setAddStaffModalVisible(false);
+      
+      // Refresh staff list
+      fetchStaffForClinic(clinicId);
+      Alert.alert('Success', 'Staff member added successfully');
+    } catch (error) {
+      console.error('Error adding staff:', error);
+      Alert.alert('Error', error.message || 'Failed to add staff member');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const renderStaffItem = ({ item }) => (
     <TouchableOpacity 
       style={styles.staffCard}
@@ -230,7 +302,31 @@ const StaffManagement = ({ navigation }) => {
               </View>
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Role:</Text>
-                <Text style={styles.detailValue}>{selectedStaff.role}</Text>
+                <Picker
+                  selectedValue={selectedStaff.role}
+                  style={styles.rolePicker}
+                  onValueChange={(itemValue) => {
+                    // Show confirmation dialog before changing role
+                    Alert.alert(
+                      'Change Role',
+                      `Are you sure you want to change this user's role to ${itemValue}?`,
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        { 
+                          text: 'Yes', 
+                          onPress: () => handleRoleChange(selectedStaff.id, itemValue)
+                        }
+                      ]
+                    );
+                  }}
+                >
+                  <Picker.Item label="Administrator" value="admin" />
+                  <Picker.Item label="Receptionist" value="receptionist" />
+                  <Picker.Item label="Billing Staff" value="billing" />
+                  <Picker.Item label="Pharmacy Staff" value="pharmacy" />
+                  <Picker.Item label="Lab Technician" value="lab" />
+                  <Picker.Item label="Nurse" value="nurse" />
+                </Picker>
               </View>
 
               <View style={styles.actionButtons}>
@@ -261,29 +357,124 @@ const StaffManagement = ({ navigation }) => {
                   </Text>
                 </TouchableOpacity>
               </View>
-
-              <View style={styles.roleButtons}>
-                <Text style={styles.roleTitle}>Change Role</Text>
-                {['RECEPTIONIST', 'NURSE', 'ADMIN'].map((role) => (
-                  <TouchableOpacity
-                    key={role}
-                    style={[
-                      styles.roleButton,
-                      selectedStaff.role === role && styles.activeRoleButton
-                    ]}
-                    onPress={() => handleRoleChange(selectedStaff.id, role)}
-                  >
-                    <Text style={[
-                      styles.roleButtonText,
-                      selectedStaff.role === role && styles.activeRoleButtonText
-                    ]}>
-                      {role}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
             </>
           )}
+        </View>
+      </View>
+    </Modal>
+  );
+
+  // Add Staff Modal
+  const AddStaffModal = () => (
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={addStaffModalVisible}
+      onRequestClose={() => setAddStaffModalVisible(false)}
+    >
+      <View style={styles.modalContainer}>
+        <View style={styles.modalContent}>
+          <TouchableOpacity 
+            style={styles.closeButton}
+            onPress={() => setAddStaffModalVisible(false)}
+          >
+            <Icon name="close" size={24} color="#333" />
+          </TouchableOpacity>
+
+          <Text style={styles.modalTitle}>Add New Staff Member</Text>
+          
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>First Name*</Text>
+            <TextInput
+              style={styles.input}
+              value={newStaff.firstName}
+              onChangeText={(text) => setNewStaff({...newStaff, firstName: text})}
+              placeholder="First Name"
+            />
+          </View>
+          
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Last Name*</Text>
+            <TextInput
+              style={styles.input}
+              value={newStaff.lastName}
+              onChangeText={(text) => setNewStaff({...newStaff, lastName: text})}
+              placeholder="Last Name"
+            />
+          </View>
+          
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Email*</Text>
+            <TextInput
+              style={styles.input}
+              value={newStaff.email}
+              onChangeText={(text) => setNewStaff({...newStaff, email: text})}
+              placeholder="Email"
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+          </View>
+          
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Phone</Text>
+            <TextInput
+              style={styles.input}
+              value={newStaff.phone}
+              onChangeText={(text) => setNewStaff({...newStaff, phone: text})}
+              placeholder="Phone Number"
+              keyboardType="phone-pad"
+            />
+          </View>
+          
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Role*</Text>
+            <Picker
+              selectedValue={newStaff.role}
+              style={styles.input}
+              onValueChange={(itemValue) => setNewStaff({...newStaff, role: itemValue})}
+            >
+              <Picker.Item label="Administrator" value="admin" />
+              <Picker.Item label="Receptionist" value="receptionist" />
+              <Picker.Item label="Billing Staff" value="billing" />
+              <Picker.Item label="Pharmacy Staff" value="pharmacy" />
+              <Picker.Item label="Lab Technician" value="lab" />
+              <Picker.Item label="Nurse" value="nurse" />
+            </Picker>
+          </View>
+          
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Password*</Text>
+            <TextInput
+              style={styles.input}
+              value={newStaff.password}
+              onChangeText={(text) => setNewStaff({...newStaff, password: text})}
+              placeholder="Password"
+              secureTextEntry
+            />
+          </View>
+          
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Confirm Password*</Text>
+            <TextInput
+              style={styles.input}
+              value={newStaff.confirmPassword}
+              onChangeText={(text) => setNewStaff({...newStaff, confirmPassword: text})}
+              placeholder="Confirm Password"
+              secureTextEntry
+            />
+          </View>
+          
+          <TouchableOpacity
+            style={styles.submitButton}
+            onPress={handleAddStaff}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.submitButtonText}>Add Staff Member</Text>
+            )}
+          </TouchableOpacity>
         </View>
       </View>
     </Modal>
@@ -300,21 +491,15 @@ const StaffManagement = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <View style={styles.clinicSelector}>
-          <Text style={styles.clinicLabel}>Select Clinic:</Text>
-          <Picker
-            selectedValue={clinicId}
-            style={styles.picker}
-            onValueChange={(itemValue) => setClinicId(itemValue)}
+        <Text style={styles.title}>Staff Management</Text>
+        <View style={styles.actionContainer}>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => setAddStaffModalVisible(true)}
           >
-            {clinics.map((clinic) => (
-              <Picker.Item 
-                key={clinic.id} 
-                label={clinic.name} 
-                value={clinic.id} 
-              />
-            ))}
-          </Picker>
+            <Icon name="person-add" size={18} color="#fff" />
+            <Text style={styles.addButtonText}>Add Staff</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -328,12 +513,6 @@ const StaffManagement = ({ navigation }) => {
             onChangeText={setSearchQuery}
           />
         </View>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => navigation.navigate('AddStaffScreen', { clinicId })}
-        >
-          <Icon name="add" size={24} color="#fff" />
-        </TouchableOpacity>
       </View>
 
       <FlatList
@@ -351,6 +530,7 @@ const StaffManagement = ({ navigation }) => {
       />
 
       <StaffDetailsModal />
+      <AddStaffModal />
     </View>
   );
 };
@@ -371,20 +551,27 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
   },
-  clinicSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  clinicLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginRight: 8,
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
     color: '#333',
   },
-  picker: {
-    flex: 1,
-    height: 40,
+  actionContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 4,
+  },
+  addButtonText: {
+    color: '#fff',
+    marginLeft: 4,
+    fontWeight: '500',
   },
   searchHeader: {
     flexDirection: 'row',
@@ -410,14 +597,6 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 40,
     fontSize: 16,
-  },
-  addButton: {
-    backgroundColor: '#0066cc',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   listContainer: {
     padding: 16,
@@ -510,31 +689,37 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: 16,
   },
-  roleButtons: {
+  rolePicker: {
+    flex: 1,
+    height: 40,
+  },
+  formGroup: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 6,
+    color: '#333',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 4,
+    padding: 10,
+    fontSize: 16,
+  },
+  submitButton: {
+    backgroundColor: '#0066cc',
+    padding: 14,
+    borderRadius: 4,
+    alignItems: 'center',
     marginTop: 16,
   },
-  roleTitle: {
+  submitButtonText: {
+    color: '#fff',
     fontSize: 16,
     fontWeight: '500',
-    color: '#333',
-    marginBottom: 8,
-  },
-  roleButton: {
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: '#f0f0f0',
-    marginBottom: 8,
-  },
-  activeRoleButton: {
-    backgroundColor: '#0066cc',
-  },
-  roleButtonText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-  },
-  activeRoleButtonText: {
-    color: '#fff',
   },
 });
 

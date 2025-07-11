@@ -40,7 +40,7 @@ const EditPatient = ({ route, navigation }) => {
   const fetchPatientDetails = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(`${API_URL}/api/admin/patient-edit/${patientId}/`, {
+      const response = await fetch(`${API_URL}/users/api/admin/patient-edit/${patientId}/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -71,7 +71,7 @@ const EditPatient = ({ route, navigation }) => {
   const handleSave = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(`${API_URL}/api/admin/patient-update/${patientId}/`, {
+      const response = await fetch(`${API_URL}/users/api/admin/patient-update/${patientId}/`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

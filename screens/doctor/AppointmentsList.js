@@ -4,31 +4,73 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  TouchableOpacity,
-  RefreshControl,
+  Pressable,
   ActivityIndicator,
-  Alert
+  Alert,
+  RefreshControl
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import { API_URL } from '../../config';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import CustomHeader from '../../components/CustomHeader';
 
-const AppointmentsList = ({ navigation }) => {
+const AppointmentsList = ({ navigation, route }) => {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const { filter } = route.params || {};
 
   useEffect(() => {
     fetchAppointments();
-  }, []);
+  }, [filter]);
+
+  // Refresh appointments when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchAppointments();
+    }, [filter])
+  );
 
   const fetchAppointments = async () => {
     try {
+      setLoading(true);
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(`${API_URL}/api/doctor/appointments/list/`, {
+      
+      let url = `${API_URL}/users/api/doctor/appointments/list/`;
+      const params = new URLSearchParams();
+      
+      const today = new Date().toISOString().split('T')[0];
+      
+      switch (filter) {
+        case 'today':
+          params.append('date_from', today);
+          params.append('date_to', today);
+          break;
+        case 'completed_today':
+          params.append('date_from', today);
+          params.append('date_to', today);
+          params.append('status', 'completed');
+          break;
+        case 'upcoming':
+          params.append('date_from', today);
+          params.append('status', 'scheduled');
+          break;
+        case 'month':
+          const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+          const lastDay = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0];
+          params.append('date_from', firstDay);
+          params.append('date_to', lastDay);
+          break;
+      }
+      
+      if (params.toString()) {
+        url += '?' + params.toString();
+      }
+
+      const response = await fetch(url, {
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
+          'Authorization': `Bearer ${token}`,
+        },
       });
 
       if (!response.ok) {
@@ -36,7 +78,8 @@ const AppointmentsList = ({ navigation }) => {
       }
 
       const data = await response.json();
-      setAppointments(data.appointments || []);
+      console.log('Appointments API response:', data); // Debug log
+      setAppointments(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching appointments:', error);
       Alert.alert('Error', 'Failed to load appointments');
@@ -46,71 +89,97 @@ const AppointmentsList = ({ navigation }) => {
     }
   };
 
+  const getStatusColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'scheduled': return '#3b82f6';
+      case 'completed': return '#10b981';
+      case 'cancelled': return '#ef4444';
+      case 'in_progress': return '#f59e0b';
+      case 'no_show': return '#6b7280';
+      default: return '#3b82f6';
+    }
+  };
+
+  const getStatusBadgeStyle = (status) => {
+    const color = getStatusColor(status);
+    return {
+      backgroundColor: color + '20',
+      borderColor: color,
+      borderWidth: 1,
+    };
+  };
+
+  const getFilterTitle = () => {
+    switch (filter) {
+      case 'today': return "Today's Appointments";
+      case 'completed_today': return "Completed Today";
+      case 'upcoming': return "Upcoming Appointments";
+      case 'month': return "This Month's Appointments";
+      default: return "All Appointments";
+    }
+  };
+
+  const renderAppointmentItem = ({ item }) => (
+    <Pressable 
+      style={styles.appointmentItem}
+      onPress={() => navigation.navigate('AppointmentDetails', { appointmentId: item.id })}
+    >
+      <View style={styles.appointmentHeader}>
+        <View style={styles.patientInfo}>
+          <Text style={styles.patientName}>
+            {item.patient_name}
+          </Text>
+          <Text style={styles.appointmentDateTime}>
+            {new Date(item.appointment_date).toLocaleDateString()} at{' '}
+            {new Date(`2000-01-01T${item.appointment_time}`).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+          </Text>
+          {item.reason && (
+            <Text style={styles.appointmentReason}>{item.reason}</Text>
+          )}
+        </View>
+        
+        <View style={[styles.statusBadge, getStatusBadgeStyle(item.status)]}>
+          <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
+            {item.status === 'in_progress' ? 'In Progress' : item.status?.charAt(0).toUpperCase() + item.status?.slice(1)}
+          </Text>
+        </View>
+      </View>
+    </Pressable>
+  );
+
   const onRefresh = () => {
     setRefreshing(true);
     fetchAppointments();
   };
 
-  const renderAppointmentItem = ({ item }) => (
-    <TouchableOpacity
-      style={[
-        styles.appointmentCard,
-        item.is_future ? styles.futureAppointment : styles.pastAppointment
-      ]}
-      onPress={() => navigation.navigate('AppointmentDetails', { appointmentId: item.id })}
-    >
-      <View style={styles.appointmentHeader}>
-        <Text style={styles.patientName}>{item.patient_name}</Text>
-        <Text style={[styles.status, { color: getStatusColor(item.status) }]}>
-          {item.status}
-        </Text>
-      </View>
-
-      <View style={styles.appointmentInfo}>
-        <Text style={styles.dateTime}>
-          {new Date(item.date).toLocaleDateString()} at {item.time}
-        </Text>
-        {item.reason && <Text style={styles.reason}>{item.reason}</Text>}
-      </View>
-    </TouchableOpacity>
-  );
-
-  const getStatusColor = (status) => {
-    switch (status.toLowerCase()) {
-      case 'scheduled': return '#2196F3';
-      case 'completed': return '#4CAF50';
-      case 'cancelled': return '#F44336';
-      default: return '#757575';
-    }
-  };
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2196F3" />
+        <ActivityIndicator size="large" color="#3b82f6" />
+        <Text style={styles.loadingText}>Loading appointments...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity
-        style={styles.addButton}
-        onPress={() => navigation.navigate('CreateAppointment')}
-      >
-        <Icon name="add" size={24} color="#fff" />
-        <Text style={styles.addButtonText}>Create New Appointment</Text>
-      </TouchableOpacity>
+      <CustomHeader 
+        title={getFilterTitle()}
+        subtitle={`${appointments.length} appointments`}
+        navigation={navigation}
+        currentScreen="Appointments"
+      />
 
       <FlatList
         data={appointments}
         renderItem={renderAppointmentItem}
-        keyExtractor={item => item.id.toString()}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+        keyExtractor={(item) => item.id.toString()}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        contentContainerStyle={styles.listContainer}
         ListEmptyComponent={
-          <Text style={styles.emptyText}>No appointments found</Text>
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateText}>No appointments found</Text>
+          </View>
         }
       />
     </View>
@@ -120,82 +189,73 @@ const AppointmentsList = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f8fafc',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#f8fafc',
   },
-  addButton: {
-    backgroundColor: '#0066cc',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-    margin: 16,
-    borderRadius: 8,
-    elevation: 2,
-  },
-  addButtonText: {
-    color: '#fff',
+  loadingText: {
+    marginTop: 10,
+    color: '#6b7280',
     fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 8,
   },
-  appointmentCard: {
-    backgroundColor: '#fff',
-    padding: 15,
-    marginHorizontal: 15,
-    marginVertical: 8,
-    borderRadius: 10,
-    elevation: 2,
+  listContainer: {
+    padding: 16,
+  },
+  appointmentItem: {
+    backgroundColor: '#ffffff',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  futureAppointment: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#2196F3',
-  },
-  pastAppointment: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#757575',
-    opacity: 0.8,
+    shadowRadius: 3,
+    elevation: 3,
   },
   appointmentHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    alignItems: 'flex-start',
+  },
+  patientInfo: {
+    flex: 1,
+    marginRight: 12,
   },
   patientName: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  status: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  appointmentInfo: {
-    marginTop: 4,
-  },
-  dateTime: {
-    fontSize: 14,
-    color: '#666',
+    fontWeight: '600',
+    color: '#1f2937',
     marginBottom: 4,
   },
-  reason: {
+  appointmentDateTime: {
     fontSize: 14,
-    color: '#666',
+    color: '#6b7280',
+    marginBottom: 4,
+  },
+  appointmentReason: {
+    fontSize: 14,
+    color: '#374151',
     fontStyle: 'italic',
   },
-  emptyText: {
-    textAlign: 'center',
-    marginTop: 50,
-    color: '#666',
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  emptyState: {
+    padding: 32,
+    alignItems: 'center',
+  },
+  emptyStateText: {
+    color: '#6b7280',
     fontSize: 16,
   },
 });

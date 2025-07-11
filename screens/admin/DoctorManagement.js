@@ -11,6 +11,7 @@ import {
   Modal,
   RefreshControl
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -23,24 +24,39 @@ const DoctorManagement = ({ navigation }) => {
   const [selectedDoctor, setSelectedDoctor] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [clinicId, setClinicId] = useState(null);
+  const [clinics, setClinics] = useState([]);
   const [selectedClinic, setSelectedClinic] = useState(null);
-
+  
   useEffect(() => {
     // First fetch the current clinic
     fetchCurrentClinic();
   }, []);
 
   useEffect(() => {
+    console.log('clinicId:', clinicId);
     // Only fetch doctors when we have a selectedClinic
+    if (clinicId) {
+      fetchDoctors();
+    }
+  }, [clinicId]);
+
+  useEffect(() => {
+    fetchClinics();
+  }, []);
+
+  useEffect(() => {
     if (selectedClinic) {
       fetchDoctors();
+      // Store selected clinic in AsyncStorage
+      AsyncStorage.setItem('clinicId', selectedClinic.toString());
     }
   }, [selectedClinic]);
 
   const fetchCurrentClinic = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(`${API_URL}/api/clinics/current/`, {
+      const response = await fetch(`${API_URL}/users/api/clinics/current/`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -53,10 +69,37 @@ const DoctorManagement = ({ navigation }) => {
       }
 
       const data = await response.json();
-      setSelectedClinic(data.clinic_id);
+      setClinicId(data.clinic_id);
     } catch (error) {
       console.error('Error fetching current clinic:', error);
       Alert.alert('Error', 'Failed to load current clinic');
+    }
+  };
+
+  const fetchClinics = async () => {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      const response = await fetch(`${API_URL}/users/api/clinics/`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch clinics');
+      }
+
+      const data = await response.json();
+      setClinics(data);
+      
+      // If there's only one clinic, select it automatically
+      if (data.length === 1) {
+        setSelectedClinic(data[0].id);
+      }
+    } catch (error) {
+      console.error('Error fetching clinics:', error);
+      Alert.alert('Error', 'Failed to load clinics');
     }
   };
 
@@ -71,7 +114,7 @@ const DoctorManagement = ({ navigation }) => {
       const token = await AsyncStorage.getItem('userToken');
       console.log('Fetching doctors for clinic:', selectedClinic);
 
-      const response = await fetch(`${API_URL}/api/clinic-admin/doctors/${selectedClinic}/`, {
+      const response = await fetch(`${API_URL}/users/api/clinic-admin/doctors/${selectedClinic}/`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -82,15 +125,24 @@ const DoctorManagement = ({ navigation }) => {
       console.log('Doctors response status:', response.status);
 
       if (!response.ok) {
+        const errorData = await response.text();
+        console.error('Error response:', errorData);
         throw new Error('Failed to fetch doctors');
       }
 
       const data = await response.json();
       console.log('Doctors data:', data);
-      setDoctors(data);
+      
+      if (Array.isArray(data)) {
+        setDoctors(data);
+      } else {
+        console.error('Unexpected data format:', data);
+        setDoctors([]);
+      }
     } catch (error) {
       console.error('Doctors fetch error:', error);
       Alert.alert('Error', 'Failed to load doctors');
+      setDoctors([]);
     } finally {
       setLoading(false);
     }
@@ -104,7 +156,7 @@ const DoctorManagement = ({ navigation }) => {
   const handleStatusChange = async (doctorId, newStatus) => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(`${API_URL}/api/clinic-admin/doctors/${doctorId}/status/`, {
+      const response = await fetch(`${API_URL}/users/api/clinic-admin/doctors/${doctorId}/status/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -252,6 +304,24 @@ const DoctorManagement = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
+      <View style={styles.clinicSelector}>
+        <Text style={styles.selectorLabel}>Select Clinic:</Text>
+        <Picker
+          selectedValue={selectedClinic}
+          onValueChange={(itemValue) => setSelectedClinic(itemValue)}
+          style={styles.picker}
+        >
+          <Picker.Item label="Select a clinic" value={null} />
+          {clinics.map((clinic) => (
+            <Picker.Item
+              key={clinic.id}
+              label={clinic.name}
+              value={clinic.id}
+            />
+          ))}
+        </Picker>
+      </View>
+
       <View style={styles.header}>
         <View style={styles.searchContainer}>
           <Icon name="search" size={24} color="#666" style={styles.searchIcon} />
@@ -264,7 +334,13 @@ const DoctorManagement = ({ navigation }) => {
         </View>
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => navigation.navigate('AddDoctor')}
+          onPress={() => {
+            if (selectedClinic) {
+              navigation.navigate('AddDoctor', { clinicId: selectedClinic });
+            } else {
+              Alert.alert('Error', 'Please select a clinic first');
+            }
+          }}
         >
           <Icon name="add" size={24} color="#fff" />
         </TouchableOpacity>
@@ -460,6 +536,23 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     color: '#666',
+  },
+  clinicSelector: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ddd',
+  },
+  selectorLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: '#333',
+  },
+  picker: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    marginTop: 4,
   },
 });
 
