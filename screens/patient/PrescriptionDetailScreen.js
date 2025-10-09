@@ -11,15 +11,23 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
 
-const PrescriptionDetailScreen = ({ route }) => {
-  const { prescriptionId } = route.params;
+const PrescriptionDetailScreen = ({ route, navigation }) => {
+  const { prescriptionId } = route.params || {};
   const [prescription, setPrescription] = useState(null);
   const [clinicDetails, setClinicDetails] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!prescriptionId) {
+      Alert.alert(
+        'Error',
+        'No prescription selected. Please select a prescription from the list.',
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
+      return;
+    }
     fetchPrescriptionDetails();
-  }, []);
+  }, [prescriptionId]);
 
   const fetchPrescriptionDetails = async () => {
     try {
