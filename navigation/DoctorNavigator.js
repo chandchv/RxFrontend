@@ -11,12 +11,31 @@ import AddPatientScreen from '../screens/doctor/AddPatientScreen';
 import AppointmentDetails from '../screens/doctor/AppointmentDetails';
 import CreateAppointment from '../screens/appointment/CreateAppointment';
 import CreatePrescription from '../screens/doctor/CreatePrescription';
+import CreatePrescriptionModern from '../screens/doctor/CreatePrescriptionModern';
 import PatientDashboard from '../screens/doctor/PatientDashboard';
 import PatientDetails from '../screens/doctor/PatientDetails';
 import PatientRecords from '../screens/doctor/PatientRecords';
 import PrescriptionScreen from '../screens/doctor/PrescriptionScreen';
 import TestResults from '../screens/doctor/TestResults';
 import VitalsScreen from '../screens/doctor/VitalsScreen';
+
+// Import new doctor screens
+import DoctorMessagingScreen from '../screens/doctor/DoctorMessagingScreen';
+import DoctorNotificationsScreen from '../screens/doctor/DoctorNotificationsScreen';
+import AppointmentApprovalScreen from '../screens/doctor/AppointmentApprovalScreen';
+import DoctorAnalyticsScreen from '../screens/doctor/DoctorAnalyticsScreen';
+
+// Import Clinical Records screens
+import ClinicalRecordsDashboardScreen from '../screens/clinical-records/ClinicalRecordsDashboardScreen';
+import ClinicalRecordsListScreen from '../screens/clinical-records/ClinicalRecordsListScreen';
+import ClinicalRecordDetailScreen from '../screens/clinical-records/ClinicalRecordDetailScreen';
+import RecordSearchScreen from '../screens/clinical-records/RecordSearchScreen';
+import DocumentUploadScreen from '../screens/clinical-records/DocumentUploadScreen';
+import DocumentViewerScreen from '../screens/clinical-records/DocumentViewerScreen';
+
+// Import Debug Screen
+import DebugScreen from '../components/DebugScreen';
+import SimpleDebugAccess from '../components/SimpleDebugAccess';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -29,12 +48,19 @@ const DashboardStack = () => (
     <Stack.Screen name="FullCalendar" component={FullCalendar} />
     <Stack.Screen name="CreateAppointment" component={CreateAppointment} />
     <Stack.Screen name="CreatePrescription" component={CreatePrescription} />
+    <Stack.Screen name="CreatePrescriptionModern" component={CreatePrescriptionModern} />
     <Stack.Screen name="AppointmentDetail" component={AppointmentDetails} />
     <Stack.Screen name="PatientDetail" component={PatientDetails} />
     <Stack.Screen name="PatientRecords" component={PatientRecords} />
     <Stack.Screen name="Prescription" component={PrescriptionScreen} />
     <Stack.Screen name="TestResults" component={TestResults} />
     <Stack.Screen name="Vitals" component={VitalsScreen} />
+    
+    {/* New Doctor Screens */}
+    <Stack.Screen name="DoctorMessages" component={DoctorMessagingScreen} />
+    <Stack.Screen name="DoctorNotifications" component={DoctorNotificationsScreen} />
+    <Stack.Screen name="AppointmentApproval" component={AppointmentApprovalScreen} />
+    <Stack.Screen name="DoctorAnalytics" component={DoctorAnalyticsScreen} />
   </Stack.Navigator>
 );
 
@@ -45,6 +71,7 @@ const AppointmentsStack = () => (
     <Stack.Screen name="AppointmentDetails" component={AppointmentDetails} />
     <Stack.Screen name="CreateAppointment" component={CreateAppointment} />
     <Stack.Screen name="CreatePrescription" component={CreatePrescription} />
+    <Stack.Screen name="CreatePrescriptionModern" component={CreatePrescriptionModern} />
     <Stack.Screen name="PatientDetails" component={PatientDetails} />
     <Stack.Screen name="PatientRecords" component={PatientRecords} />
     <Stack.Screen name="Prescription" component={PrescriptionScreen} />
@@ -60,6 +87,7 @@ const PatientsStack = () => (
     <Stack.Screen name="AddPatient" component={AddPatientScreen} />
     <Stack.Screen name="PatientDetails" component={PatientDetails} />
     <Stack.Screen name="PatientRecords" component={PatientRecords} />
+    <Stack.Screen name="CreatePrescriptionModern" component={CreatePrescriptionModern} />
     <Stack.Screen name="Prescription" component={PrescriptionScreen} />
     <Stack.Screen name="TestResults" component={TestResults} />
     <Stack.Screen name="Vitals" component={VitalsScreen} />
@@ -71,12 +99,26 @@ const CalendarStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="FullCalendar" component={FullCalendar} />
     <Stack.Screen name="CreateAppointment" component={CreateAppointment} />
+    <Stack.Screen name="CreatePrescriptionModern" component={CreatePrescriptionModern} />
     <Stack.Screen name="AppointmentDetail" component={AppointmentDetails} />
     <Stack.Screen name="PatientDetail" component={PatientDetails} />
     <Stack.Screen name="PatientRecords" component={PatientRecords} />
     <Stack.Screen name="Prescription" component={PrescriptionScreen} />
     <Stack.Screen name="TestResults" component={TestResults} />
     <Stack.Screen name="Vitals" component={VitalsScreen} />
+  </Stack.Navigator>
+);
+
+// Clinical Records Stack
+const ClinicalRecordsStack = () => (
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Screen name="ClinicalRecordsDashboard" component={ClinicalRecordsDashboardScreen} />
+    <Stack.Screen name="ClinicalRecordsList" component={ClinicalRecordsListScreen} />
+    <Stack.Screen name="ClinicalRecordDetail" component={ClinicalRecordDetailScreen} />
+    <Stack.Screen name="RecordSearch" component={RecordSearchScreen} />
+    <Stack.Screen name="DocumentUpload" component={DocumentUploadScreen} />
+    <Stack.Screen name="DocumentViewer" component={DocumentViewerScreen} />
+    <Stack.Screen name="DebugScreen" component={DebugScreen} />
   </Stack.Navigator>
 );
 
@@ -99,6 +141,9 @@ const DoctorNavigator = () => {
               break;
             case 'Calendar':
               iconName = 'calendar-today';
+              break;
+            case 'ClinicalRecords':
+              iconName = 'folder';
               break;
             default:
               iconName = 'circle';
@@ -149,6 +194,13 @@ const DoctorNavigator = () => {
         component={CalendarStack}
         options={{
           tabBarLabel: 'Calendar',
+        }}
+      />
+      <Tab.Screen 
+        name="ClinicalRecords" 
+        component={ClinicalRecordsStack}
+        options={{
+          tabBarLabel: 'Records',
         }}
       />
     </Tab.Navigator>

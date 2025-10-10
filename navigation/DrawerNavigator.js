@@ -115,15 +115,44 @@ const DrawerNavigator = () => {
         />
       )}
       {userType === 'patient' && (
-        <Drawer.Screen 
-          name="Patient Dashboard" 
-          component={PatientDashboard}
-          options={{
-            drawerIcon: ({ color }) => (
-              <Icon name="dashboard" size={24} color={color} />
-            ),
-          }}
-        />
+        <>
+          <Drawer.Screen 
+            name="Patient Dashboard" 
+            component={PatientDashboard}
+            options={{
+              drawerIcon: ({ color }) => (
+                <Icon name="dashboard" size={24} color={color} />
+              ),
+            }}
+          />
+          <Drawer.Screen 
+            name="My Appointments" 
+            component={AppointmentsScreen}
+            options={{
+              drawerIcon: ({ color }) => (
+                <Icon name="event" size={24} color={color} />
+              ),
+            }}
+          />
+          <Drawer.Screen 
+            name="My Prescriptions" 
+            component={PrescriptionDetailScreen}
+            options={{
+              drawerIcon: ({ color }) => (
+                <Icon name="description" size={24} color={color} />
+              ),
+            }}
+          />
+          <Drawer.Screen 
+            name="Book Appointment" 
+            component={CreatePatientAppointment}
+            options={{
+              drawerIcon: ({ color }) => (
+                <Icon name="add-circle" size={24} color={color} />
+              ),
+            }}
+          />
+        </>
       )}
       {userType === 'admin' && (
         <Drawer.Screen 

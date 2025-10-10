@@ -159,7 +159,7 @@ const ClinicAdminDashboard = ({ navigation }) => {
     {
       title: 'Patients',
       icon: 'people',
-      screen: 'PatientManagement', 
+      screen: 'PatientsList', 
       color: '#2196F3'
     },
     {

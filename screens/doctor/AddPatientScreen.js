@@ -13,9 +13,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
 import { Picker } from '@react-native-picker/picker';
 import CustomHeader from '../../components/CustomHeader';
+import { useNavigation } from '@react-navigation/native';
+import CalendarPicker from "react-native-calendar-picker";
 
 const AddPatientScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const [formData, setFormData] = useState({
     patient_id: '',
     user_id: '',
@@ -23,16 +26,28 @@ const AddPatientScreen = ({ navigation }) => {
     doctor_id: '',
     first_name: '',
     last_name: '',
-    email: 'example@gmail.com',
-    phone: '9876543210',
-    date_of_birth: 'YYYY-MM-DD',
+    email: '',
+    phone: '',
+    date_of_birth: '',
     gender: 'M',
-    address: '1234567890',
-    existing_diseases: 'Diabetes',
-    current_medications: 'Paracetamol',
-    allergies: 'Penicillin'
-
+    address: '',
+    existing_diseases: '',
+    current_medications: '',
+    allergies: ''
   });
+
+  const onDateChange = (date) => {
+    setSelectedDate(date);
+    if (date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const formattedDate = `${year}-${month}-${day}`;
+      setFormData({ ...formData, date_of_birth: formattedDate });
+    } else {
+      setFormData({ ...formData, date_of_birth: '' });
+    }
+  };
 
   const handleSubmit = async () => {
     // Validate required fields
@@ -44,7 +59,7 @@ const AddPatientScreen = ({ navigation }) => {
     setLoading(true);
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(`${API_URL}/api/doctor/create-patient/`, {
+      const response = await fetch(`${API_URL}/users/api/doctor/create-patient/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -115,27 +130,30 @@ const AddPatientScreen = ({ navigation }) => {
             style={styles.input}
             value={formData.email}
             onChangeText={(text) => setFormData({ ...formData, email: text })}
-            placeholder="Enter email"
+            placeholder="example@gmail.com"
             keyboardType="email-address"
           />
 
           <Text style={styles.label}>Phone *</Text>
           <TextInput
             style={styles.input}
-            value={formData.phone_number}
-            onChangeText={(text) => setFormData({ ...formData, phone_number: text })}
-            placeholder="Enter phone number"
+            value={formData.phone}
+            onChangeText={(text) => setFormData({ ...formData, phone: text })}
+            placeholder="9876543210"
+            maxLength={10}
             keyboardType="phone-pad"
           />
 
           <Text style={styles.label}>Date of Birth</Text>
-          <TextInput
-            style={styles.input}
-            value={formData.date_of_birth}
-            onChangeText={(text) => setFormData({ ...formData, date_of_birth: text })}
-            placeholder="YYYY-MM-DD"
-            keyboardType="numeric"
+          <CalendarPicker
+            onDateChange={onDateChange}
+            selectedDate={selectedDate}
+            minDate={new Date(1900, 0, 1)} // Allow dates from 1900
+            maxDate={new Date()} // Allow dates up to today
+            allowRangeSelection={false}
+            initialDate={new Date()} // Set default to today
           />
+
 
           <Text style={styles.label}>Gender</Text>
           <View style={styles.pickerContainer}>
@@ -154,7 +172,7 @@ const AddPatientScreen = ({ navigation }) => {
             style={[styles.input, styles.textArea]}
             value={formData.address}
             onChangeText={(text) => setFormData({ ...formData, address: text })}
-            placeholder="Enter address"
+            placeholder="123 Main Street, City, State"
             multiline
             numberOfLines={3}
           />
@@ -164,7 +182,7 @@ const AddPatientScreen = ({ navigation }) => {
             style={styles.input}
             value={formData.existing_diseases}
             onChangeText={(text) => setFormData({ ...formData, existing_diseases: text })}
-            placeholder="Enter existing diseases"
+            placeholder="Diabetes, Hypertension"
           />
 
           <Text style={styles.label}>Current Medications</Text>
@@ -172,14 +190,14 @@ const AddPatientScreen = ({ navigation }) => {
             style={styles.input}
             value={formData.current_medications}
             onChangeText={(text) => setFormData({ ...formData, current_medications: text })}
-            placeholder="Enter current medications"
+            placeholder="Paracetamol, Aspirin"
           />
           <Text style={styles.label}>Allergies</Text>
           <TextInput
             style={styles.input}
             value={formData.allergies}
             onChangeText={(text) => setFormData({ ...formData, allergies: text })}
-            placeholder="Enter allergies"
+            placeholder="Penicillin, Latex"
           />
 
           <TouchableOpacity

@@ -182,6 +182,15 @@ const AppointmentDetails = ({ route, navigation }) => {
           <Icon name="medical-services" size={24} color="#fff" />
           <Text style={styles.buttonText}>Create Prescription</Text>
         </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.button}
+          onPress={() => navigation.navigate('CreatePrescriptionModern', {
+            patientId: appointment.patient_id,
+            appointmentId: appointmentId
+          })}>
+          <Icon name="medical-services" size={24} color="#fff" />
+          <Text style={styles.buttonText}>Create Prescription Modern</Text>
+        </TouchableOpacity>
 
         {appointment.status === 'scheduled' && (
           <TouchableOpacity 

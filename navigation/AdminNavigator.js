@@ -14,9 +14,18 @@ import AddDoctor from '../screens/admin/AddDoctor';
 import EditPatient from '../screens/admin/EditPatient';
 import LabManagement from '../screens/admin/LabManagement';
 import ClinicReports from '../screens/admin/ClinicReports';
+import ConsolidatedReportingScreen from '../screens/ConsolidatedReportingScreen';
 import LabDashboard from '../screens/lab/LabDashboard';
 import PharmacyDashboard from '../screens/pharmacy/PharmacyDashboard';
 import BillingDashboard from '../screens/billing/BillingDashboard';
+
+// Import Clinical Records screens
+import ClinicalRecordsDashboardScreen from '../screens/clinical-records/ClinicalRecordsDashboardScreen';
+import ClinicalRecordsListScreen from '../screens/clinical-records/ClinicalRecordsListScreen';
+import ClinicalRecordDetailScreen from '../screens/clinical-records/ClinicalRecordDetailScreen';
+import RecordSearchScreen from '../screens/clinical-records/RecordSearchScreen';
+import DocumentUploadScreen from '../screens/clinical-records/DocumentUploadScreen';
+import DocumentViewerScreen from '../screens/clinical-records/DocumentViewerScreen';
 
 const Drawer = createDrawerNavigator();
 const Stack = createStackNavigator();
@@ -128,12 +137,32 @@ const AdminDrawerNavigator = () => {
         }}
       />
       <Drawer.Screen 
+        name="ConsolidatedReporting" 
+        component={ConsolidatedReportingScreen}
+        options={{
+          title: 'Multi-Branch Reports',
+          drawerIcon: ({color, size}) => (
+            <Icon name="assessment" size={size} color={color} />
+          ),
+        }}
+      />
+      <Drawer.Screen 
         name="ClinicSettings" 
         component={ClinicSettings}
         options={{
           title: 'Clinic Settings',
           drawerIcon: ({color, size}) => (
             <Icon name="settings" size={size} color={color} />
+          ),
+        }}
+      />
+      <Drawer.Screen 
+        name="ClinicalRecordsDashboard" 
+        component={ClinicalRecordsDashboardScreen}
+        options={{
+          title: 'Clinical Records',
+          drawerIcon: ({color, size}) => (
+            <Icon name="folder" size={size} color={color} />
           ),
         }}
       />
@@ -153,6 +182,11 @@ const AdminNavigator = () => {
       <Stack.Screen name="EditDoctor" component={EditDoctor} />
       <Stack.Screen name="EditPatient" component={EditPatient} />
       <Stack.Screen name="AddDoctor" component={AddDoctor} />
+      <Stack.Screen name="ClinicalRecordsList" component={ClinicalRecordsListScreen} />
+      <Stack.Screen name="ClinicalRecordDetail" component={ClinicalRecordDetailScreen} />
+      <Stack.Screen name="RecordSearch" component={RecordSearchScreen} />
+      <Stack.Screen name="DocumentUpload" component={DocumentUploadScreen} />
+      <Stack.Screen name="DocumentViewer" component={DocumentViewerScreen} />
     </Stack.Navigator>
   );
 };

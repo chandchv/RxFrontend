@@ -8,12 +8,14 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
-  Platform
+  Platform,
+  Dimensions
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, DrawerActions } from '@react-navigation/native';
 import { API_URL } from '../../config';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const PatientDashboard = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
@@ -22,11 +24,135 @@ const PatientDashboard = ({ navigation }) => {
   const [appointments, setAppointments] = useState([]);
   const [prescriptions, setPrescriptions] = useState([]);
   const [medicalHistory, setMedicalHistory] = useState([]);
+  const [labResults, setLabResults] = useState([]);
+  const [messages, setMessages] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [healthMetrics, setHealthMetrics] = useState({});
   const [errors, setErrors] = useState({});
+  
+  const { width } = Dimensions.get('window');
+
+  // Patient Menu Items
+  const menuItems = [
+    {
+      title: 'My Appointments',
+      icon: 'event',
+      onPress: () => navigation.navigate('AppointmentsList'),
+      color: '#4CAF50',
+      badge: Array.isArray(appointments) ? appointments.filter(a => a.status === 'scheduled').length : 0
+    },
+    {
+      title: 'My Prescriptions',
+      icon: 'description',
+      onPress: () => {
+        // Scroll to prescriptions section or show first prescription if available
+        if (prescriptions.length > 0) {
+          navigation.navigate('PrescriptionDetailScreen', { prescriptionId: prescriptions[0].id });
+        } else {
+          Alert.alert('No Prescriptions', 'You don\'t have any prescriptions yet.');
+        }
+      },
+      color: '#9C27B0',
+      badge: Array.isArray(prescriptions) ? prescriptions.length : 0
+    },
+    {
+      title: 'Lab Results',
+      icon: 'science',
+      onPress: () => navigation.navigate('LabResults'),
+      color: '#FF9800',
+      badge: Array.isArray(labResults) ? labResults.length : 0
+    },
+    {
+      title: 'Messages',
+      icon: 'message',
+      onPress: () => navigation.navigate('Messages'),
+      color: '#2196F3',
+      badge: Array.isArray(messages) ? messages.filter(m => !m.is_read).length : 0
+    },
+    {
+      title: 'Medical History',
+      icon: 'history',
+      onPress: () => navigation.navigate('MedicalHistory'),
+      color: '#607D8B'
+    },
+    {
+      title: 'Health Overview',
+      icon: 'favorite',
+      onPress: () => navigation.navigate('HealthOverview'),
+      color: '#E91E63'
+    },
+    {
+      title: 'Book Appointment',
+      icon: 'add-circle',
+      onPress: () => navigation.navigate('CreateAppointmentPatient'),
+      color: '#00BCD4'
+    },
+    {
+      title: 'Emergency',
+      icon: 'local-hospital',
+      onPress: () => navigation.navigate('EmergencyInfo'),
+      color: '#F44336'
+    }
+  ];
 
   useEffect(() => {
     fetchDashboardData();
+    console.log('PatientDashboard: Menu items count:', menuItems.length);
   }, []);
+
+  // Add hamburger menu and logout button to header
+  React.useLayoutEffect(() => {
+    navigation.setOptions({
+      headerLeft: () => (
+        <TouchableOpacity
+          style={{ marginLeft: 15 }}
+          onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())}
+        >
+          <Icon name="menu" size={28} color="#fff" />
+        </TouchableOpacity>
+      ),
+      headerRight: () => (
+        <TouchableOpacity
+          style={{ marginRight: 15 }}
+          onPress={async () => {
+            Alert.alert(
+              'Logout',
+              'Are you sure you want to logout?',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Logout',
+                  onPress: async () => {
+                    try {
+                      await AsyncStorage.multiRemove([
+                        'userToken',
+                        'refreshToken',
+                        'user',
+                        'role',
+                        'doctorId',
+                        'patientId',
+                        'clinicId',
+                        'userType'
+                      ]);
+                      navigation.reset({
+                        index: 0,
+                        routes: [{ name: 'Login' }],
+                      });
+                    } catch (error) {
+                      console.error('Error during logout:', error);
+                      Alert.alert('Error', 'Failed to logout. Please try again.');
+                    }
+                  }
+                }
+              ]
+            );
+          }}
+        >
+          <Icon name="logout" size={24} color="#fff" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
 
   // Refresh dashboard data when screen comes into focus
   useFocusEffect(
@@ -70,12 +196,16 @@ const PatientDashboard = ({ navigation }) => {
         }
       };
 
-      // Fetch all data in parallel
-      const [profileData, appointmentsData, prescriptionsData, medicalHistoryData] = await Promise.all([
+      // Fetch all data in parallel using mobile API endpoints
+      const [profileData, appointmentsData, prescriptionsData, medicalHistoryData, labResultsData, messagesData, notificationsData, healthMetricsData] = await Promise.all([
         fetchData('/users/api/patient/me/', 'profile'),
         fetchData('/users/api/patient/appointments/', 'appointments'),
         fetchData('/users/api/patients/prescriptions/', 'prescriptions'),
-        fetchData('/users/api/patient/medical-history/', 'medicalHistory')
+        fetchData('/users/api/patient/medical-history/', 'medicalHistory'),
+        fetchData('/users/api/patient/lab-results/', 'labResults'),
+        fetchData('/users/api/patient/messages/', 'messages'),
+        fetchData('/notifications/api/mobile/summary/', 'notifications'),
+        fetchData('/users/api/patient/health-metrics/', 'healthMetrics')
       ]);
 
       // Update state only if data is valid
@@ -93,6 +223,22 @@ const PatientDashboard = ({ navigation }) => {
 
       if (Array.isArray(medicalHistoryData)) {
         setMedicalHistory(medicalHistoryData);
+      }
+
+      if (Array.isArray(labResultsData)) {
+        setLabResults(labResultsData);
+      }
+
+      if (Array.isArray(messagesData)) {
+        setMessages(messagesData);
+      }
+
+      if (Array.isArray(notificationsData)) {
+        setNotifications(notificationsData);
+      }
+
+      if (healthMetricsData && !healthMetricsData.error) {
+        setHealthMetrics(healthMetricsData);
       }
 
     } catch (error) {
@@ -116,7 +262,7 @@ const PatientDashboard = ({ navigation }) => {
     fetchDashboardData();
   };
 
-  const renderDashboardCard = (title, count, icon, onPress, error) => {
+  const renderDashboardCard = (title, count, icon, onPress, error, color = '#2196F3', subtitle = '') => {
     const cardStyles = [styles.card];
     const titleStyles = [styles.cardTitle];
     const countStyles = [styles.cardCount];
@@ -129,19 +275,25 @@ const PatientDashboard = ({ navigation }) => {
     
     return (
       <TouchableOpacity 
-        style={cardStyles}
+        style={[cardStyles, { borderLeftColor: color, borderLeftWidth: 4 }]}
         onPress={onPress}
         disabled={Boolean(error)}
       >
-        <Icon name={icon} size={32} color={error ? '#FF5252' : '#2196F3'} />
-        <Text style={titleStyles}>{title}</Text>
-        <Text style={countStyles}>
+        <View style={styles.cardHeader}>
+          <Icon name={icon} size={28} color={error ? '#FF5252' : color} />
+          <View style={styles.cardContent}>
+            <Text style={titleStyles}>{title}</Text>
+            {subtitle ? <Text style={styles.cardSubtitle}>{subtitle}</Text> : null}
+          </View>
+        </View>
+        <Text style={[countStyles, { color: error ? '#FF5252' : color }]}>
           {error ? 'Error' : count}
         </Text>
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
       </TouchableOpacity>
     );
   };
+
 
   const renderAppointmentItem = (appointment) => (
     <TouchableOpacity 
@@ -206,6 +358,7 @@ const PatientDashboard = ({ navigation }) => {
   return (
     <ScrollView 
       style={styles.container}
+      contentContainerStyle={styles.contentContainer}
       refreshControl={
         <RefreshControl 
           refreshing={refreshing} 
@@ -233,37 +386,118 @@ const PatientDashboard = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.cardsContainer}>
-        {renderDashboardCard(
-          'Appointments',
-          appointments.length,
-          'event',
-          () => navigation.navigate('AppointmentsList'),
-          errors.appointments
-        )}
-        {renderDashboardCard(
-          'Prescriptions',
-          prescriptions.length,
-          'description',
-          () => navigation.navigate('PrescriptionDetailScreen'),
-          errors.prescriptions
-        )}
-        {renderDashboardCard(
-          'Medical History',
-          medicalHistory.length,
-          'history',
-          () => navigation.navigate('MedicalHistory'),
-          errors.medicalHistory
-        )}
+      {/* Health Overview Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Health Overview</Text>
+        <View style={styles.healthOverviewContainer}>
+          <TouchableOpacity 
+            style={[styles.healthCard, { backgroundColor: '#4CAF50' }]} 
+            onPress={() => navigation.navigate('HealthOverview')}
+          >
+            <Icon name="favorite" size={24} color="#fff" />
+            <Text style={styles.healthCardTitle}>Health Score</Text>
+            <Text style={styles.healthCardValue}>{healthMetrics.health_score || '85'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.healthCard, { backgroundColor: '#2196F3' }]} 
+            onPress={() => navigation.navigate('AppointmentsList')}
+          >
+            <Icon name="event" size={24} color="#fff" />
+            <Text style={styles.healthCardTitle}>Appointments</Text>
+            <Text style={styles.healthCardValue}>{appointments.length}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.healthCard, { backgroundColor: '#9C27B0' }]} 
+            onPress={() => {
+              if (prescriptions.length > 0) {
+                navigation.navigate('PrescriptionDetailScreen', { prescriptionId: prescriptions[0].id });
+              } else {
+                Alert.alert('No Prescriptions', 'You don\'t have any prescriptions yet.');
+              }
+            }}
+          >
+            <Icon name="description" size={24} color="#fff" />
+            <Text style={styles.healthCardTitle}>Prescriptions</Text>
+            <Text style={styles.healthCardValue}>{prescriptions.length}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.healthCard, { backgroundColor: '#FF9800' }]} 
+            onPress={() => navigation.navigate('LabResults')}
+          >
+            <Icon name="science" size={24} color="#fff" />
+            <Text style={styles.healthCardTitle}>Lab Tests</Text>
+            <Text style={styles.healthCardValue}>{labResults.length}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      <TouchableOpacity 
-        style={styles.newAppointmentButton}
-        onPress={() => navigation.navigate('CreateAppointmentPatient')}
-      >
-        <Icon name="add" size={24} color="#fff" />
-        <Text style={styles.newAppointmentText}>Book New Appointment</Text>
-      </TouchableOpacity>
+      {/* Quick Actions Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <View style={styles.quickActionsContainer}>
+          <TouchableOpacity 
+            style={[styles.quickActionButton, { backgroundColor: '#4CAF50' }]} 
+            onPress={() => navigation.navigate('CreateAppointmentPatient')}
+          >
+            <Icon name="add" size={20} color="#fff" />
+            <Text style={styles.quickActionText}>Book Appointment</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.quickActionButton, { backgroundColor: '#2196F3' }]} 
+            onPress={() => navigation.navigate('ContactDoctor')}
+          >
+            <Icon name="phone" size={20} color="#fff" />
+            <Text style={styles.quickActionText}>Contact Doctor</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.quickActionButton, { backgroundColor: '#F44336' }]} 
+            onPress={() => navigation.navigate('EmergencyInfo')}
+          >
+            <Icon name="warning" size={20} color="#fff" />
+            <Text style={styles.quickActionText}>Emergency</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.quickActionButton, { backgroundColor: '#9C27B0' }]} 
+            onPress={() => navigation.navigate('Messages')}
+          >
+            <Icon name="message" size={20} color="#fff" />
+            <Text style={styles.quickActionText}>Messages</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Patient Portal Menu Grid */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Patient Portal</Text>
+        <View style={styles.menuGrid}>
+          {menuItems.map((item, index) => (
+            <TouchableOpacity
+              key={index}
+              style={[styles.menuItem, { backgroundColor: item.color }]}
+              onPress={() => {
+                console.log('Menu item pressed:', item.title);
+                try {
+                  item.onPress();
+                } catch (error) {
+                  console.error('Navigation error:', error);
+                  Alert.alert('Navigation Error', `Cannot navigate to ${item.title}: ${error.message}`);
+                }
+              }}
+            >
+              <Icon name={item.icon} size={32} color="#fff" />
+              <Text style={styles.menuItemText}>{item.title}</Text>
+              {item.badge !== undefined && item.badge > 0 && (
+                <View style={styles.menuBadge}>
+                  <Text style={styles.menuBadgeText}>{item.badge}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+        <Text style={{ textAlign: 'center', marginTop: 10, color: '#666', fontSize: 12 }}>
+          Menu Items: {menuItems.length} | Tap any tile to navigate
+        </Text>
+      </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Upcoming Appointments</Text>
@@ -293,6 +527,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  contentContainer: {
+    paddingBottom: 20,
   },
   loadingContainer: {
     flex: 1,
@@ -345,18 +582,96 @@ const styles = StyleSheet.create({
     color: '#2196F3',
     fontWeight: '500',
   },
-  cardsContainer: {
+  section: {
+    padding: 20,
+    backgroundColor: '#fff',
+    marginBottom: 15,
+    marginHorizontal: 15,
+    borderRadius: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 15,
+  },
+  healthOverviewContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    padding: 10,
     justifyContent: 'space-between',
   },
-  card: {
-    width: '30%',
-    backgroundColor: '#fff',
+  healthCard: {
+    width: '48%',
     padding: 15,
     borderRadius: 10,
     alignItems: 'center',
+    marginBottom: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  healthCardTitle: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  healthCardValue: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginTop: 4,
+  },
+  quickActionsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  quickActionButton: {
+    width: '48%',
+    padding: 12,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  quickActionText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '500',
+    marginLeft: 6,
+  },
+  cardsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  card: {
+    width: '48%',
+    backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: 10,
     marginBottom: 15,
     ...Platform.select({
       ios: {
@@ -369,6 +684,20 @@ const styles = StyleSheet.create({
         elevation: 3,
       },
     }),
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  cardContent: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  cardSubtitle: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
   },
   cardError: {
     borderColor: '#FF5252',
@@ -398,6 +727,93 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: 'center',
   },
+  statsContainer: {
+    padding: 16,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  statCard: {
+    width: '48%',
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+    elevation: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#2196F3',
+  },
+  statLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 4,
+  },
+  menuGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    padding: 8,
+  },
+  menuItem: {
+    width: '45%',
+    aspectRatio: 1,
+    margin: '2.5%',
+    borderRadius: 8,
+    padding: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  menuItemText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  menuBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#F44336',
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  menuBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
   newAppointmentButton: {
     backgroundColor: '#4CAF50',
     flexDirection: 'row',
@@ -423,29 +839,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 8,
-  },
-  section: {
-    padding: 20,
-    backgroundColor: '#fff',
-    marginBottom: 15,
-    borderRadius: 10,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 15,
   },
   appointmentCard: {
     backgroundColor: '#f8f8f8',
